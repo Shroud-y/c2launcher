@@ -109,6 +109,14 @@ export function TrendUpIcon({ size = 14, className }: IconProps): JSX.Element {
   )
 }
 
+export function FolderIcon({ size = 18, className }: IconProps): JSX.Element {
+  return (
+    <svg {...svgProps(size, className)}>
+      <path d="M3 7V5a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+    </svg>
+  )
+}
+
 export function CloseIcon({ size = 18, className }: IconProps): JSX.Element {
   return (
     <svg {...svgProps(size, className)}>

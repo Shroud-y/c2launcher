@@ -1,4 +1,5 @@
-import { BrowserWindow, ipcMain, type WebContents } from 'electron'
+import { BrowserWindow, ipcMain, shell, type WebContents } from 'electron'
+import { mkdir } from 'fs/promises'
 import { IpcChannel } from '@shared/ipc-channels'
 import type {
   CreateModpackParams,
@@ -9,11 +10,14 @@ import type {
   ModpackSettings
 } from '@shared/types'
 import {
+  adoptUnknownInstances,
   applySettings,
   createModpack,
+  deleteModpack,
   getModpack,
-  instanceDir,
+  instanceDirFor,
   listModpacks,
+  migrateInstanceDirs,
   minecraftRoot,
   updateModpack
 } from '../modpacks/store'
@@ -24,7 +28,14 @@ import { findJava } from '../minecraft/java'
 import { getMinecraftSession } from '../auth/microsoftAuth'
 import { loadRefreshToken, saveRefreshToken } from '../auth/tokenStore'
 
+import type { ChildProcess } from 'child_process'
+
 const busy = new Set<string>() // installing or running
+const runningProcesses = new Map<string, ChildProcess>()
+
+export function isAnyModpackBusy(): boolean {
+  return busy.size > 0
+}
 
 function broadcast(channel: IpcChannel, payload: unknown): void {
   for (const win of BrowserWindow.getAllWindows()) {
@@ -81,12 +92,13 @@ async function runLaunch(modpack: Modpack, _sender: WebContents): Promise<void> 
     meta,
     javaPath,
     minecraftRoot: minecraftRoot(),
-    gameDir: instanceDir(modpackId),
+    gameDir: instanceDirFor(modpack),
     memoryMb: modpack.memoryMb,
     extraJavaArgs: modpack.javaArgs,
     session
   })
 
+  runningProcesses.set(modpackId, child)
   updateModpack(modpackId, { lastPlayedAt: Date.now() })
 
   let sawRunning = false
@@ -106,18 +118,28 @@ async function runLaunch(modpack: Modpack, _sender: WebContents): Promise<void> 
 
   child.on('error', (err) => {
     busy.delete(modpackId)
+    runningProcesses.delete(modpackId)
     sendState({ modpackId, state: 'error', message: err.message })
   })
 
   child.on('close', (code) => {
     busy.delete(modpackId)
+    runningProcesses.delete(modpackId)
     sendLog({ modpackId, stream: 'system', line: `Game exited with code ${code ?? 0}` })
     sendState({ modpackId, state: 'exited', exitCode: code ?? 0 })
   })
 }
 
 export function registerModpackIpc(): void {
-  ipcMain.handle(IpcChannel.ModpackList, (): Modpack[] => listModpacks())
+  void migrateInstanceDirs()
+
+  ipcMain.handle(IpcChannel.ModpackList, async (): Promise<Modpack[]> => {
+    // Awaited here (not just at startup) so the renderer never sees
+    // pre-migration records without dirName.
+    await migrateInstanceDirs()
+    await adoptUnknownInstances()
+    return listModpacks()
+  })
 
   ipcMain.handle(
     IpcChannel.ModpackCreate,
@@ -126,10 +148,38 @@ export function registerModpackIpc(): void {
 
   ipcMain.handle(
     IpcChannel.ModpackUpdateSettings,
-    (_e, id: string, settings: ModpackSettings): Modpack | null => applySettings(id, settings)
+    async (_e, id: string, settings: ModpackSettings): Promise<Modpack | null> => {
+      const current = getModpack(id)
+      if (current !== null && settings.name.trim() !== current.name && busy.has(id)) {
+        throw new Error('Stop the game before renaming the modpack')
+      }
+      return applySettings(id, settings)
+    }
   )
 
+  ipcMain.handle(IpcChannel.ModpackDelete, async (_e, id: string): Promise<void> => {
+    if (busy.has(id)) {
+      throw new Error('Stop the game and wait for installs to finish before deleting')
+    }
+    await deleteModpack(id)
+  })
+
+  ipcMain.handle(IpcChannel.ModpackOpenFolder, async (_e, id: string): Promise<void> => {
+    const modpack = getModpack(id)
+    if (modpack === null) throw new Error('Modpack not found')
+    const dir = instanceDirFor(modpack)
+    await mkdir(dir, { recursive: true })
+    await shell.openPath(dir)
+  })
+
   ipcMain.handle(IpcChannel.MinecraftVersions, (): Promise<string[]> => listReleaseVersionIds())
+
+  ipcMain.handle(IpcChannel.ModpackStop, (_e, id: string): void => {
+    const child = runningProcesses.get(id)
+    if (child === undefined) return
+    sendLog({ modpackId: id, stream: 'system', line: 'Stopping game…' })
+    child.kill()
+  })
 
   ipcMain.handle(IpcChannel.ModpackLaunch, async (event, id: string): Promise<void> => {
     const modpack = getModpack(id)

@@ -1,0 +1,116 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.modal {
+  position: relative;
+  width: 460px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--card-radius);
+  padding: 24px;
+}
+
+.closeButton {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  color: var(--text-muted);
+}
+
+.closeButton:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fieldLabel {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.path {
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--accent);
+  word-break: break-all;
+  user-select: text;
+}
+
+.buttonRow {
+  display: flex;
+  gap: 8px;
+}
+
+.primaryButton {
+  padding: 8px 20px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--text-on-accent);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.primaryButton:hover:enabled {
+  background: var(--accent-soft);
+}
+
+.secondaryButton {
+  padding: 8px 20px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.secondaryButton:hover:enabled {
+  background: var(--bg-hover);
+}
+
+.primaryButton:disabled,
+.secondaryButton:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.error {
+  font-size: 12px;
+  color: #f85149;
+}

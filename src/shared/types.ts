@@ -8,6 +8,8 @@ export type IconTint = 'teal' | 'mint' | 'light'
 export interface Modpack {
   id: string
   name: string
+  /** Folder name under <dataDir>/instances — derived from the name. */
+  dirName: string
   loader: ModLoader | null
   gameVersion: string | null
   iconTint: IconTint
@@ -27,6 +29,13 @@ export interface ModpackSettings {
   name: string
   memoryMb: number
   javaArgs: string
+  /** Null keeps the current version (or stays unassigned). */
+  gameVersion: string | null
+}
+
+export interface AppSettings {
+  /** Root folder for heavy game data (instances + shared minecraft files). */
+  dataDir: string
 }
 
 export type InstallPhase = 'manifest' | 'client' | 'libraries' | 'assets' | 'done' | 'error'

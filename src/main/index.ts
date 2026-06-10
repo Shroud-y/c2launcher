@@ -3,6 +3,7 @@ import { join } from 'path'
 import { registerWindowIpc } from './ipc/window'
 import { registerAuthIpc } from './ipc/auth'
 import { registerModpackIpc } from './ipc/modpacks'
+import { registerSettingsIpc } from './ipc/settings'
 
 function createWindow(): void {
   const win = new BrowserWindow({
@@ -39,6 +40,7 @@ app.whenReady().then(() => {
   registerWindowIpc()
   registerAuthIpc()
   registerModpackIpc()
+  registerSettingsIpc()
   createWindow()
 
   app.on('activate', () => {

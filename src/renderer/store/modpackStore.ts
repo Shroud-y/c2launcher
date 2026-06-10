@@ -22,6 +22,8 @@ interface ModpackState {
   create: (params: CreateModpackParams) => Promise<Modpack>
   updateSettings: (id: string, settings: ModpackSettings) => Promise<void>
   launch: (id: string) => Promise<void>
+  stop: (id: string) => Promise<void>
+  remove: (id: string) => Promise<void>
   startEventSubscriptions: () => void
 }
 
@@ -66,6 +68,15 @@ export const useModpackStore = create<ModpackState>((set, get) => ({
     } catch (err) {
       set({ launchError: err instanceof Error ? stripIpcPrefix(err.message) : 'Launch failed' })
     }
+  },
+
+  stop: async (id): Promise<void> => {
+    await window.api.modpack.stop(id)
+  },
+
+  remove: async (id): Promise<void> => {
+    await window.api.modpack.remove(id)
+    set({ modpacks: get().modpacks.filter((m) => m.id !== id) })
   },
 
   startEventSubscriptions: (): void => {

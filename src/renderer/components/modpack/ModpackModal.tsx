@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { CloseIcon, WindIcon } from '../common/Icons'
+import { CloseIcon, FolderIcon, WindIcon } from '../common/Icons'
 import { formatSubtitle, placeholderModpacks } from '../../data/placeholders'
 import { useModalStore } from '../../store/modalStore'
 import { useModpackStore } from '../../store/modpackStore'
@@ -13,8 +13,17 @@ interface ModpackModalProps {
 
 export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Element {
   const closeModpack = useModalStore((s) => s.closeModpack)
-  const { modpacks, installProgress, gameStates, logs, launchError, launch, updateSettings } =
-    useModpackStore()
+  const {
+    modpacks,
+    installProgress,
+    gameStates,
+    logs,
+    launchError,
+    launch,
+    stop,
+    remove,
+    updateSettings
+  } = useModpackStore()
 
   const localPack = modpacks.find((m) => m.id === modpackId) ?? null
   // Discover cards still carry placeholder data until Phase 4.
@@ -24,7 +33,22 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
   const [name, setName] = useState(pack?.name ?? '')
   const [memoryMb, setMemoryMb] = useState(pack?.memoryMb ?? 4096)
   const [javaArgs, setJavaArgs] = useState(pack?.javaArgs ?? '')
+  const [gameVersion, setGameVersion] = useState(pack?.gameVersion ?? '')
+  const [versions, setVersions] = useState<string[]>([])
   const [settingsSaved, setSettingsSaved] = useState(false)
+  const [settingsError, setSettingsError] = useState<string | null>(null)
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+
+  useEffect(() => {
+    if (tab !== 'settings' || versions.length > 0) return
+    window.api.minecraft
+      .versions()
+      .then(setVersions)
+      .catch(() => {
+        // Offline — dropdown just shows the current version.
+      })
+  }, [tab, versions.length])
 
   const logRef = useRef<HTMLPreElement>(null)
   const packLogs = logs[modpackId] ?? []
@@ -39,7 +63,8 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
 
   const progress = installProgress[modpackId]
   const gameState = gameStates[modpackId]
-  const isBusy = progress !== undefined || gameState === 'launching' || gameState === 'running'
+  const isInstalling = progress !== undefined
+  const isRunning = gameState === 'launching' || gameState === 'running'
 
   const subtitle = formatSubtitle(pack)
   const statusText =
@@ -56,10 +81,35 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
     void launch(modpackId)
   }
 
+  async function confirmDelete(): Promise<void> {
+    setDeleting(true)
+    setSettingsError(null)
+    try {
+      await remove(modpackId)
+      closeModpack()
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to delete modpack'
+      setSettingsError(message.replace(/^Error invoking remote method '[^']+': (?:\w*Error: )?/, ''))
+      setDeleting(false)
+      setConfirmingDelete(false)
+    }
+  }
+
   async function saveSettings(): Promise<void> {
-    await updateSettings(modpackId, { name, memoryMb, javaArgs })
-    setSettingsSaved(true)
-    setTimeout(() => setSettingsSaved(false), 1500)
+    setSettingsError(null)
+    try {
+      await updateSettings(modpackId, {
+        name,
+        memoryMb,
+        javaArgs,
+        gameVersion: gameVersion === '' ? null : gameVersion
+      })
+      setSettingsSaved(true)
+      setTimeout(() => setSettingsSaved(false), 1500)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to save settings'
+      setSettingsError(message.replace(/^Error invoking remote method '[^']+': (?:\w*Error: )?/, ''))
+    }
   }
 
   return (
@@ -84,15 +134,34 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
             {statusText !== null && <span className={styles.status}>{statusText}</span>}
           </div>
           <div className={styles.headerActions}>
-            <button
-              type="button"
-              className={styles.playButton}
-              disabled={localPack === null || isBusy}
-              title={localPack === null ? 'Available after Modrinth integration (Phase 4)' : undefined}
-              onClick={play}
-            >
-              {gameState === 'running' ? 'Running' : 'Play'}
-            </button>
+            {localPack !== null && (
+              <button
+                type="button"
+                className={styles.folderButton}
+                title="Open instance folder"
+                aria-label="Open instance folder"
+                onClick={() => void window.api.modpack.openFolder(modpackId)}
+              >
+                <FolderIcon />
+              </button>
+            )}
+            {isRunning ? (
+              <button type="button" className={styles.stopButton} onClick={() => void stop(modpackId)}>
+                Stop
+              </button>
+            ) : (
+              <button
+                type="button"
+                className={styles.playButton}
+                disabled={localPack === null || isInstalling}
+                title={
+                  localPack === null ? 'Available after Modrinth integration (Phase 4)' : undefined
+                }
+                onClick={play}
+              >
+                Play
+              </button>
+            )}
           </div>
         </header>
 
@@ -145,6 +214,25 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
               />
             </label>
             <label className={styles.field}>
+              <span className={styles.fieldLabel}>Game version</span>
+              <select
+                className={styles.input}
+                value={gameVersion}
+                onChange={(e) => setGameVersion(e.target.value)}
+                disabled={localPack === null}
+              >
+                {gameVersion === '' && <option value="">— not assigned —</option>}
+                {gameVersion !== '' && !versions.includes(gameVersion) && (
+                  <option value={gameVersion}>{gameVersion}</option>
+                )}
+                {versions.map((v) => (
+                  <option key={v} value={v}>
+                    {v}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className={styles.field}>
               <span className={styles.fieldLabel}>Java arguments</span>
               <input
                 className={styles.input}
@@ -162,6 +250,47 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
             >
               {settingsSaved ? 'Saved ✓' : 'Save'}
             </button>
+            {settingsError !== null && <span className={styles.errorText}>{settingsError}</span>}
+
+            {localPack !== null && (
+              <div className={styles.dangerZone}>
+                <span className={styles.dangerLabel}>Danger zone</span>
+                {confirmingDelete ? (
+                  <div className={styles.dangerConfirm}>
+                    <span className={styles.dangerWarning}>
+                      Permanently deletes &quot;{localPack.name}&quot; with all its worlds, mods and
+                      settings. This cannot be undone.
+                    </span>
+                    <div className={styles.dangerButtons}>
+                      <button
+                        type="button"
+                        className={styles.cancelButton}
+                        disabled={deleting}
+                        onClick={() => setConfirmingDelete(false)}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        className={styles.deleteButton}
+                        disabled={deleting}
+                        onClick={() => void confirmDelete()}
+                      >
+                        {deleting ? 'Deleting…' : 'Delete forever'}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    className={styles.deleteButton}
+                    onClick={() => setConfirmingDelete(true)}
+                  >
+                    Delete instance…
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         )}
 

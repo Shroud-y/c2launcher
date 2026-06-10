@@ -15,6 +15,7 @@ function placeholderPack(
   return {
     id,
     name,
+    dirName: '',
     loader,
     gameVersion,
     iconTint,

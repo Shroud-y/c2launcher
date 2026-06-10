@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
 import { IpcChannel } from '@shared/ipc-channels'
 import type {
+  AppSettings,
   CreateModpackParams,
   GameLogLine,
   GameState,
@@ -35,6 +36,9 @@ const api = {
     updateSettings: (id: string, settings: ModpackSettings): Promise<Modpack | null> =>
       ipcRenderer.invoke(IpcChannel.ModpackUpdateSettings, id, settings),
     launch: (id: string): Promise<void> => ipcRenderer.invoke(IpcChannel.ModpackLaunch, id),
+    stop: (id: string): Promise<void> => ipcRenderer.invoke(IpcChannel.ModpackStop, id),
+    openFolder: (id: string): Promise<void> => ipcRenderer.invoke(IpcChannel.ModpackOpenFolder, id),
+    remove: (id: string): Promise<void> => ipcRenderer.invoke(IpcChannel.ModpackDelete, id),
     onInstallProgress: (cb: (p: InstallProgress) => void): (() => void) =>
       subscribe(IpcChannel.ModpackInstallProgress, cb),
     onGameState: (cb: (s: GameState) => void): (() => void) =>
@@ -44,6 +48,12 @@ const api = {
   },
   minecraft: {
     versions: (): Promise<string[]> => ipcRenderer.invoke(IpcChannel.MinecraftVersions)
+  },
+  settings: {
+    get: (): Promise<AppSettings> => ipcRenderer.invoke(IpcChannel.SettingsGet),
+    chooseDataDir: (): Promise<AppSettings> =>
+      ipcRenderer.invoke(IpcChannel.SettingsChooseDataDir),
+    openDataDir: (): Promise<void> => ipcRenderer.invoke(IpcChannel.SettingsOpenDataDir)
   }
 }
 

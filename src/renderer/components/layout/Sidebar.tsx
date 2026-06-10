@@ -19,6 +19,7 @@ export default function Sidebar(): JSX.Element {
   const logout = useAuthStore((s) => s.logout)
   const openModpack = useModalStore((s) => s.openModpack)
   const openCreate = useModalStore((s) => s.openCreate)
+  const openSettings = useModalStore((s) => s.openSettings)
   const modpacks = useModpackStore((s) => s.modpacks)
 
   const recent = [...modpacks]
@@ -56,7 +57,7 @@ export default function Sidebar(): JSX.Element {
 
       <div className={styles.spacer} />
 
-      <IconButton label="Settings">
+      <IconButton label="Settings" onClick={openSettings}>
         <GearIcon />
       </IconButton>
       <IconButton label="Log out" danger onClick={() => void logout()}>

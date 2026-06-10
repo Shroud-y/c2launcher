@@ -109,6 +109,35 @@
   cursor: default;
 }
 
+.folderButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+}
+
+.folderButton:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.stopButton {
+  padding: 10px 28px;
+  border-radius: 10px;
+  background: #da3633;
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 700;
+  transition: background 0.15s;
+}
+
+.stopButton:hover {
+  background: #f85149;
+}
+
 .updateButton {
   padding: 10px 16px;
   border-radius: 10px;
@@ -191,6 +220,82 @@
 .saveButton:disabled {
   opacity: 0.5;
   cursor: default;
+}
+
+.errorText {
+  font-size: 12px;
+  color: #f85149;
+}
+
+.dangerZone {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.dangerLabel {
+  font-size: 12px;
+  font-weight: 700;
+  color: #f85149;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.dangerConfirm {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(248, 81, 73, 0.4);
+  background: rgba(248, 81, 73, 0.08);
+}
+
+.dangerWarning {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-primary);
+}
+
+.dangerButtons {
+  display: flex;
+  gap: 8px;
+}
+
+.deleteButton {
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1px solid #da3633;
+  color: #f85149;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.deleteButton:hover:enabled {
+  background: #da3633;
+  color: #ffffff;
+}
+
+.deleteButton:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.cancelButton {
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.cancelButton:hover:enabled {
+  background: var(--bg-hover);
 }
 
 .logView {
