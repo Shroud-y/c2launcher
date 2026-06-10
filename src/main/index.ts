@@ -1,6 +1,7 @@
-import { app, BrowserWindow, ipcMain, shell } from 'electron'
+import { app, BrowserWindow, shell } from 'electron'
 import { join } from 'path'
-import { IpcChannel } from '@shared/ipc-channels'
+import { registerWindowIpc } from './ipc/window'
+import { registerAuthIpc } from './ipc/auth'
 
 function createWindow(): void {
   const win = new BrowserWindow({
@@ -33,26 +34,9 @@ function createWindow(): void {
   }
 }
 
-function registerWindowControls(): void {
-  ipcMain.on(IpcChannel.WindowMinimize, (event) => {
-    BrowserWindow.fromWebContents(event.sender)?.minimize()
-  })
-  ipcMain.on(IpcChannel.WindowMaximize, (event) => {
-    const win = BrowserWindow.fromWebContents(event.sender)
-    if (!win) return
-    if (win.isMaximized()) {
-      win.unmaximize()
-    } else {
-      win.maximize()
-    }
-  })
-  ipcMain.on(IpcChannel.WindowClose, (event) => {
-    BrowserWindow.fromWebContents(event.sender)?.close()
-  })
-}
-
 app.whenReady().then(() => {
-  registerWindowControls()
+  registerWindowIpc()
+  registerAuthIpc()
   createWindow()
 
   app.on('activate', () => {

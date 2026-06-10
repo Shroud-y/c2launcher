@@ -1,8 +1,10 @@
+import { useEffect, useRef } from 'react'
 import styles from './Avatar.module.css'
 
 /**
- * Player head avatar. Phase 1 renders a static pixel-art Steve head;
- * Phase 2 swaps the pixel grid for the real skin fetched after login.
+ * Player head avatar. With a real skin texture it draws the face (8,8)
+ * plus the hat overlay (40,8) onto a pixel canvas; without one it falls
+ * back to a static pixel-art Steve.
  */
 
 // 8×8 colour map of the classic Steve face.
@@ -26,9 +28,10 @@ const FACE: string[][] = [
 
 interface AvatarProps {
   size?: number
+  skinBase64?: string | null
 }
 
-export default function Avatar({ size = 40 }: AvatarProps): JSX.Element {
+function SteveFace({ size }: { size: number }): JSX.Element {
   return (
     <svg
       className={styles.avatar}
@@ -46,4 +49,43 @@ export default function Avatar({ size = 40 }: AvatarProps): JSX.Element {
       )}
     </svg>
   )
+}
+
+function SkinFace({ size, skinBase64 }: { size: number; skinBase64: string }): JSX.Element {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (canvas === null) return
+    const ctx = canvas.getContext('2d')
+    if (ctx === null) return
+
+    const img = new Image()
+    img.onload = (): void => {
+      ctx.imageSmoothingEnabled = false
+      ctx.clearRect(0, 0, 8, 8)
+      ctx.drawImage(img, 8, 8, 8, 8, 0, 0, 8, 8) // face
+      ctx.drawImage(img, 40, 8, 8, 8, 0, 0, 8, 8) // hat overlay
+    }
+    img.src = `data:image/png;base64,${skinBase64}`
+  }, [skinBase64])
+
+  return (
+    <canvas
+      ref={canvasRef}
+      className={styles.avatar}
+      width={8}
+      height={8}
+      style={{ width: size, height: size }}
+      role="img"
+      aria-label="Player avatar"
+    />
+  )
+}
+
+export default function Avatar({ size = 40, skinBase64 = null }: AvatarProps): JSX.Element {
+  if (skinBase64 !== null) {
+    return <SkinFace size={size} skinBase64={skinBase64} />
+  }
+  return <SteveFace size={size} />
 }

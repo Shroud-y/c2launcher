@@ -1,6 +1,7 @@
 import { useLocation, useNavigate } from 'react-router-dom'
 import IconButton from '../common/IconButton'
 import { CompassIcon, GearIcon, HomeIcon, LogoutIcon, PlusIcon, WindIcon } from '../common/Icons'
+import { useAuthStore } from '../../store/authStore'
 import type { IconTint } from '@shared/types'
 import styles from './Sidebar.module.css'
 
@@ -20,6 +21,7 @@ const TINT_CLASS: Record<IconTint, string> = {
 export default function Sidebar(): JSX.Element {
   const navigate = useNavigate()
   const { pathname } = useLocation()
+  const logout = useAuthStore((s) => s.logout)
 
   return (
     <nav className={styles.sidebar}>
@@ -53,7 +55,7 @@ export default function Sidebar(): JSX.Element {
       <IconButton label="Settings">
         <GearIcon />
       </IconButton>
-      <IconButton label="Log out" danger>
+      <IconButton label="Log out" danger onClick={() => void logout()}>
         <LogoutIcon />
       </IconButton>
     </nav>

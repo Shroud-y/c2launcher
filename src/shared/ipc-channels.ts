@@ -13,6 +13,7 @@ export enum IpcChannel {
   ModpackInstallMod = 'modpack:install-mod',
   AuthLogin = 'auth:login',
   AuthLogout = 'auth:logout',
+  AuthGetProfile = 'auth:get-profile',
   DiscoverSearch = 'discover:search',
   WindowMinimize = 'window:minimize',
   WindowMaximize = 'window:maximize',

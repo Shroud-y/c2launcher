@@ -30,6 +30,8 @@ export interface ModpackDetail extends Modpack {
 export interface MinecraftProfile {
   uuid: string
   username: string
+  /** Raw 64×64 skin texture as base64 PNG; null when the fetch failed. */
+  skinBase64: string | null
 }
 
 export type ContentCategory =
