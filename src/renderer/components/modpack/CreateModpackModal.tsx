@@ -1,0 +1,129 @@
+import { useEffect, useState } from 'react'
+import { CloseIcon } from '../common/Icons'
+import { useModalStore } from '../../store/modalStore'
+import { useModpackStore } from '../../store/modpackStore'
+import type { ModLoader } from '@shared/types'
+import styles from './CreateModpackModal.module.css'
+
+const LOADERS: { id: ModLoader; label: string; available: boolean }[] = [
+  { id: 'vanilla', label: 'Vanilla', available: true },
+  { id: 'fabric', label: 'Fabric', available: false },
+  { id: 'forge', label: 'Forge', available: false },
+  { id: 'quilt', label: 'Quilt', available: false }
+]
+
+export default function CreateModpackModal(): JSX.Element {
+  const closeCreate = useModalStore((s) => s.closeCreate)
+  const openModpack = useModalStore((s) => s.openModpack)
+  const create = useModpackStore((s) => s.create)
+
+  const [name, setName] = useState('')
+  const [loader, setLoader] = useState<ModLoader>('vanilla')
+  const [versions, setVersions] = useState<string[]>([])
+  const [gameVersion, setGameVersion] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    window.api.minecraft
+      .versions()
+      .then((list) => {
+        if (cancelled) return
+        setVersions(list)
+        if (list.length > 0) setGameVersion(list[0])
+      })
+      .catch(() => {
+        if (!cancelled) setError('Could not load version list — check your connection')
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  async function submit(): Promise<void> {
+    if (gameVersion === '' || submitting) return
+    setSubmitting(true)
+    setError(null)
+    try {
+      const pack = await create({ name, loader, gameVersion })
+      closeCreate()
+      openModpack(pack.id)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create modpack')
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div className={styles.overlay} onClick={closeCreate}>
+      <div
+        className={styles.modal}
+        role="dialog"
+        aria-label="Create modpack"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button type="button" className={styles.closeButton} aria-label="Close" onClick={closeCreate}>
+          <CloseIcon />
+        </button>
+        <h2 className={styles.title}>New modpack</h2>
+
+        <label className={styles.field}>
+          <span className={styles.fieldLabel}>Name</span>
+          <input
+            className={styles.input}
+            value={name}
+            placeholder="Unnamed modpack"
+            onChange={(e) => setName(e.target.value)}
+            autoFocus
+          />
+        </label>
+
+        <div className={styles.field}>
+          <span className={styles.fieldLabel}>Loader</span>
+          <div className={styles.loaderRow}>
+            {LOADERS.map((l) => (
+              <button
+                key={l.id}
+                type="button"
+                className={loader === l.id ? styles.loaderActive : styles.loader}
+                disabled={!l.available}
+                title={l.available ? l.label : `${l.label} support arrives in a later phase`}
+                onClick={() => setLoader(l.id)}
+              >
+                {l.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <label className={styles.field}>
+          <span className={styles.fieldLabel}>Game version</span>
+          <select
+            className={styles.input}
+            value={gameVersion}
+            onChange={(e) => setGameVersion(e.target.value)}
+            disabled={versions.length === 0}
+          >
+            {versions.map((v) => (
+              <option key={v} value={v}>
+                {v}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        {error !== null && <span className={styles.error}>{error}</span>}
+
+        <button
+          type="button"
+          className={styles.createButton}
+          disabled={gameVersion === '' || submitting}
+          onClick={() => void submit()}
+        >
+          {submitting ? 'Creating…' : 'Create'}
+        </button>
+      </div>
+    </div>
+  )
+}

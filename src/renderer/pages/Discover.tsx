@@ -3,7 +3,7 @@ import CategoryTabs from '../components/discover/CategoryTabs'
 import SearchBar from '../components/discover/SearchBar'
 import SortFilter from '../components/discover/SortFilter'
 import ModpackGrid from '../components/modpack/ModpackGrid'
-import { emptySlotCount, placeholderModpacks } from '../data/placeholders'
+import { placeholderModpacks } from '../data/placeholders'
 import type { ContentCategory } from '@shared/types'
 import styles from './Discover.module.css'
 
@@ -28,7 +28,7 @@ export default function Discover(): JSX.Element {
         onChange={setSearchText}
       />
       <SortFilter />
-      <ModpackGrid modpacks={placeholderModpacks} emptySlots={emptySlotCount} />
+      <ModpackGrid modpacks={placeholderModpacks} emptySlots={4} />
     </div>
   )
 }

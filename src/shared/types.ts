@@ -11,6 +11,47 @@ export interface Modpack {
   loader: ModLoader | null
   gameVersion: string | null
   iconTint: IconTint
+  memoryMb: number
+  javaArgs: string
+  createdAt: number
+  lastPlayedAt: number | null
+}
+
+export interface CreateModpackParams {
+  name: string
+  loader: ModLoader
+  gameVersion: string
+}
+
+export interface ModpackSettings {
+  name: string
+  memoryMb: number
+  javaArgs: string
+}
+
+export type InstallPhase = 'manifest' | 'client' | 'libraries' | 'assets' | 'done' | 'error'
+
+export interface InstallProgress {
+  modpackId: string
+  phase: InstallPhase
+  /** 0–100 across the whole install. */
+  percent: number
+  message: string
+}
+
+export type GameStateKind = 'launching' | 'running' | 'exited' | 'error'
+
+export interface GameState {
+  modpackId: string
+  state: GameStateKind
+  exitCode?: number
+  message?: string
+}
+
+export interface GameLogLine {
+  modpackId: string
+  stream: 'stdout' | 'stderr' | 'system'
+  line: string
 }
 
 export interface InstalledMod {

@@ -1,6 +1,7 @@
 import { WindIcon } from '../common/Icons'
 import { formatSubtitle } from '../../data/placeholders'
 import { useModalStore } from '../../store/modalStore'
+import { useModpackStore } from '../../store/modpackStore'
 import type { Modpack } from '@shared/types'
 import styles from './ModpackCard.module.css'
 
@@ -16,7 +17,15 @@ interface ModpackCardProps {
 
 export default function ModpackCard({ modpack }: ModpackCardProps): JSX.Element {
   const openModpack = useModalStore((s) => s.openModpack)
-  const subtitle = formatSubtitle(modpack)
+  const progress = useModpackStore((s) => s.installProgress[modpack.id])
+  const gameState = useModpackStore((s) => s.gameStates[modpack.id])
+
+  const subtitle =
+    progress !== undefined
+      ? `${progress.message} (${progress.percent}%)`
+      : gameState === 'running' || gameState === 'launching'
+        ? 'Running'
+        : formatSubtitle(modpack)
 
   return (
     <button type="button" className={styles.card} onClick={() => openModpack(modpack.id)}>

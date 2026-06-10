@@ -2,15 +2,10 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import IconButton from '../common/IconButton'
 import { CompassIcon, GearIcon, HomeIcon, LogoutIcon, PlusIcon, WindIcon } from '../common/Icons'
 import { useAuthStore } from '../../store/authStore'
+import { useModalStore } from '../../store/modalStore'
+import { useModpackStore } from '../../store/modpackStore'
 import type { IconTint } from '@shared/types'
 import styles from './Sidebar.module.css'
-
-// Recent modpack slots are placeholders until Phase 3 wires real data.
-const RECENT_SLOTS: { id: string; tint: IconTint }[] = [
-  { id: 'recent-1', tint: 'teal' },
-  { id: 'recent-2', tint: 'mint' },
-  { id: 'recent-3', tint: 'light' }
-]
 
 const TINT_CLASS: Record<IconTint, string> = {
   teal: 'tintTeal',
@@ -22,6 +17,14 @@ export default function Sidebar(): JSX.Element {
   const navigate = useNavigate()
   const { pathname } = useLocation()
   const logout = useAuthStore((s) => s.logout)
+  const openModpack = useModalStore((s) => s.openModpack)
+  const openCreate = useModalStore((s) => s.openCreate)
+  const modpacks = useModpackStore((s) => s.modpacks)
+
+  const recent = [...modpacks]
+    .filter((m) => m.lastPlayedAt !== null)
+    .sort((a, b) => (b.lastPlayedAt ?? 0) - (a.lastPlayedAt ?? 0))
+    .slice(0, 3)
 
   return (
     <nav className={styles.sidebar}>
@@ -34,19 +37,20 @@ export default function Sidebar(): JSX.Element {
 
       <div className={styles.separator} />
 
-      {RECENT_SLOTS.map((slot) => (
+      {recent.map((pack) => (
         <button
-          key={slot.id}
+          key={pack.id}
           type="button"
-          className={`${styles.recentSlot} ${styles[TINT_CLASS[slot.tint]]}`}
-          title="Recent modpack"
-          aria-label="Recent modpack"
+          className={`${styles.recentSlot} ${styles[TINT_CLASS[pack.iconTint]]}`}
+          title={pack.name}
+          aria-label={pack.name}
+          onClick={() => openModpack(pack.id)}
         >
           <WindIcon />
         </button>
       ))}
 
-      <IconButton label="Add modpack">
+      <IconButton label="Add modpack" onClick={openCreate}>
         <PlusIcon />
       </IconButton>
 

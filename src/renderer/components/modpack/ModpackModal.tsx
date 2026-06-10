@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { CloseIcon, WindIcon } from '../common/Icons'
-import { formatSubtitle, getPlaceholderDetail } from '../../data/placeholders'
+import { formatSubtitle, placeholderModpacks } from '../../data/placeholders'
 import { useModalStore } from '../../store/modalStore'
+import { useModpackStore } from '../../store/modpackStore'
 import styles from './ModpackModal.module.css'
 
-type ModalTab = 'mods' | 'settings'
+type ModalTab = 'mods' | 'settings' | 'logs'
 
 interface ModpackModalProps {
   modpackId: string
@@ -12,18 +13,53 @@ interface ModpackModalProps {
 
 export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Element {
   const closeModpack = useModalStore((s) => s.closeModpack)
-  const detail = getPlaceholderDetail(modpackId)
+  const { modpacks, installProgress, gameStates, logs, launchError, launch, updateSettings } =
+    useModpackStore()
+
+  const localPack = modpacks.find((m) => m.id === modpackId) ?? null
+  // Discover cards still carry placeholder data until Phase 4.
+  const pack = localPack ?? placeholderModpacks.find((m) => m.id === modpackId) ?? null
 
   const [tab, setTab] = useState<ModalTab>('mods')
-  const [mods, setMods] = useState(detail.mods)
-  const [name, setName] = useState(detail.name)
-  const [memoryMb, setMemoryMb] = useState(detail.memoryMb)
-  const [javaArgs, setJavaArgs] = useState(detail.javaArgs)
+  const [name, setName] = useState(pack?.name ?? '')
+  const [memoryMb, setMemoryMb] = useState(pack?.memoryMb ?? 4096)
+  const [javaArgs, setJavaArgs] = useState(pack?.javaArgs ?? '')
+  const [settingsSaved, setSettingsSaved] = useState(false)
 
-  const subtitle = formatSubtitle(detail)
+  const logRef = useRef<HTMLPreElement>(null)
+  const packLogs = logs[modpackId] ?? []
 
-  function toggleMod(id: string): void {
-    setMods((prev) => prev.map((m) => (m.id === id ? { ...m, enabled: !m.enabled } : m)))
+  useEffect(() => {
+    if (tab === 'logs' && logRef.current !== null) {
+      logRef.current.scrollTop = logRef.current.scrollHeight
+    }
+  }, [tab, packLogs.length])
+
+  if (pack === null) return <></>
+
+  const progress = installProgress[modpackId]
+  const gameState = gameStates[modpackId]
+  const isBusy = progress !== undefined || gameState === 'launching' || gameState === 'running'
+
+  const subtitle = formatSubtitle(pack)
+  const statusText =
+    progress !== undefined
+      ? `${progress.message} (${progress.percent}%)`
+      : gameState === 'launching'
+        ? 'Starting…'
+        : gameState === 'running'
+          ? 'Running'
+          : null
+
+  function play(): void {
+    setTab('logs')
+    void launch(modpackId)
+  }
+
+  async function saveSettings(): Promise<void> {
+    await updateSettings(modpackId, { name, memoryMb, javaArgs })
+    setSettingsSaved(true)
+    setTimeout(() => setSettingsSaved(false), 1500)
   }
 
   return (
@@ -31,7 +67,7 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
       <div
         className={styles.modal}
         role="dialog"
-        aria-label={detail.name}
+        aria-label={pack.name}
         onClick={(e) => e.stopPropagation()}
       >
         <button type="button" className={styles.closeButton} aria-label="Close" onClick={closeModpack}>
@@ -43,60 +79,46 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
             <WindIcon size={36} />
           </span>
           <div className={styles.headerText}>
-            <h2 className={styles.name}>{name}</h2>
+            <h2 className={styles.name}>{localPack?.name ?? pack.name}</h2>
             {subtitle !== null && <span className={styles.badge}>{subtitle}</span>}
+            {statusText !== null && <span className={styles.status}>{statusText}</span>}
           </div>
           <div className={styles.headerActions}>
-            {detail.updateAvailable && (
-              <button type="button" className={styles.updateButton}>
-                Update
-              </button>
-            )}
-            <button type="button" className={styles.playButton}>
-              Play
+            <button
+              type="button"
+              className={styles.playButton}
+              disabled={localPack === null || isBusy}
+              title={localPack === null ? 'Available after Modrinth integration (Phase 4)' : undefined}
+              onClick={play}
+            >
+              {gameState === 'running' ? 'Running' : 'Play'}
             </button>
           </div>
         </header>
 
+        {launchError !== null && <div className={styles.error}>{launchError}</div>}
+
         <nav className={styles.tabs}>
-          <button
-            type="button"
-            className={tab === 'mods' ? styles.tabActive : styles.tab}
-            onClick={() => setTab('mods')}
-          >
-            Mods
-          </button>
-          <button
-            type="button"
-            className={tab === 'settings' ? styles.tabActive : styles.tab}
-            onClick={() => setTab('settings')}
-          >
-            Settings
-          </button>
+          {(['mods', 'settings', 'logs'] as const).map((t) => (
+            <button
+              key={t}
+              type="button"
+              className={tab === t ? styles.tabActive : styles.tab}
+              onClick={() => setTab(t)}
+            >
+              {t.charAt(0).toUpperCase() + t.slice(1)}
+            </button>
+          ))}
         </nav>
 
-        {tab === 'mods' ? (
-          <ul className={styles.modList}>
-            {mods.map((mod) => (
-              <li key={mod.id} className={styles.modRow}>
-                <div className={styles.modInfo}>
-                  <span className={styles.modName}>{mod.name}</span>
-                  <span className={styles.modVersion}>{mod.version}</span>
-                </div>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={mod.enabled}
-                  aria-label={`Toggle ${mod.name}`}
-                  className={mod.enabled ? styles.toggleOn : styles.toggle}
-                  onClick={() => toggleMod(mod.id)}
-                >
-                  <span className={styles.toggleKnob} />
-                </button>
-              </li>
-            ))}
-          </ul>
-        ) : (
+        {tab === 'mods' && (
+          <div className={styles.placeholderNote}>
+            Mod management arrives with Modrinth integration (Phase 4). Drop jars into the
+            modpack&apos;s <code>mods</code> folder meanwhile.
+          </div>
+        )}
+
+        {tab === 'settings' && (
           <div className={styles.settings}>
             <label className={styles.field}>
               <span className={styles.fieldLabel}>Name</span>
@@ -104,6 +126,7 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
                 className={styles.input}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
+                disabled={localPack === null}
               />
             </label>
             <label className={styles.field}>
@@ -118,6 +141,7 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
                 value={memoryMb}
                 onChange={(e) => setMemoryMb(Number(e.target.value))}
                 className={styles.slider}
+                disabled={localPack === null}
               />
             </label>
             <label className={styles.field}>
@@ -127,9 +151,24 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
                 value={javaArgs}
                 onChange={(e) => setJavaArgs(e.target.value)}
                 spellCheck={false}
+                disabled={localPack === null}
               />
             </label>
+            <button
+              type="button"
+              className={styles.saveButton}
+              disabled={localPack === null}
+              onClick={() => void saveSettings()}
+            >
+              {settingsSaved ? 'Saved ✓' : 'Save'}
+            </button>
           </div>
+        )}
+
+        {tab === 'logs' && (
+          <pre ref={logRef} className={styles.logView}>
+            {packLogs.length === 0 ? 'No output yet. Press Play to see logs.' : packLogs.join('\n')}
+          </pre>
         )}
       </div>
     </div>

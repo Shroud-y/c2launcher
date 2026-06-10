@@ -4,19 +4,26 @@ import TopBar from './components/layout/TopBar'
 import Sidebar from './components/layout/Sidebar'
 import RightPanel from './components/layout/RightPanel'
 import ModpackModal from './components/modpack/ModpackModal'
+import CreateModpackModal from './components/modpack/CreateModpackModal'
 import Home from './pages/Home'
 import Discover from './pages/Discover'
 import { useModalStore } from './store/modalStore'
 import { useAuthStore } from './store/authStore'
+import { useModpackStore } from './store/modpackStore'
 import styles from './App.module.css'
 
 export default function App(): JSX.Element {
   const openModpackId = useModalStore((s) => s.openModpackId)
+  const isCreateOpen = useModalStore((s) => s.isCreateOpen)
   const initAuth = useAuthStore((s) => s.init)
+  const loadModpacks = useModpackStore((s) => s.load)
+  const startEventSubscriptions = useModpackStore((s) => s.startEventSubscriptions)
 
   useEffect(() => {
+    startEventSubscriptions()
     void initAuth()
-  }, [initAuth])
+    void loadModpacks()
+  }, [initAuth, loadModpacks, startEventSubscriptions])
 
   return (
     <HashRouter>
@@ -33,6 +40,7 @@ export default function App(): JSX.Element {
           <RightPanel />
         </div>
         {openModpackId !== null && <ModpackModal modpackId={openModpackId} />}
+        {isCreateOpen && <CreateModpackModal />}
       </div>
     </HashRouter>
   )

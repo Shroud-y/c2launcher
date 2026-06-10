@@ -11,11 +11,18 @@ export enum IpcChannel {
   ModpackCreate = 'modpack:create',
   ModpackLaunch = 'modpack:launch',
   ModpackInstallMod = 'modpack:install-mod',
+  ModpackUpdateSettings = 'modpack:update-settings',
+  MinecraftVersions = 'minecraft:versions',
   AuthLogin = 'auth:login',
   AuthLogout = 'auth:logout',
   AuthGetProfile = 'auth:get-profile',
   DiscoverSearch = 'discover:search',
   WindowMinimize = 'window:minimize',
   WindowMaximize = 'window:maximize',
-  WindowClose = 'window:close'
+  WindowClose = 'window:close',
+
+  // Main → renderer events
+  ModpackInstallProgress = 'modpack:install-progress',
+  ModpackGameLog = 'modpack:game-log',
+  ModpackGameState = 'modpack:game-state'
 }

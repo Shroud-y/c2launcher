@@ -1,7 +1,13 @@
 import { BrowserWindow, ipcMain } from 'electron'
 import { IpcChannel } from '@shared/ipc-channels'
 import type { MinecraftProfile } from '@shared/types'
-import { AuthError, clearAuthSession, loginInteractive, loginSilent } from '../auth/microsoftAuth'
+import {
+  AuthError,
+  clearAuthSession,
+  clearCachedSession,
+  loginInteractive,
+  loginSilent
+} from '../auth/microsoftAuth'
 import {
   clearAuthData,
   loadProfile,
@@ -29,6 +35,7 @@ export function registerAuthIpc(): void {
 
   ipcMain.handle(IpcChannel.AuthLogout, async (): Promise<void> => {
     clearAuthData()
+    clearCachedSession()
     await clearAuthSession()
   })
 

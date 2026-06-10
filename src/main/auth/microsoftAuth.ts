@@ -168,15 +168,20 @@ async function xstsAuth(xblToken: string): Promise<XboxToken> {
 
 // ---------- Minecraft ----------
 
-async function minecraftLogin(userHash: string, xstsToken: string): Promise<string> {
+interface McToken {
+  accessToken: string
+  expiresInSec: number
+}
+
+async function minecraftLogin(userHash: string, xstsToken: string): Promise<McToken> {
   const res = await fetch('https://api.minecraftservices.com/authentication/login_with_xbox', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify({ identityToken: `XBL3.0 x=${userHash};${xstsToken}` })
   })
   if (!res.ok) throw new AuthError(`Minecraft login failed (${res.status})`)
-  const data = (await res.json()) as { access_token: string }
-  return data.access_token
+  const data = (await res.json()) as { access_token: string; expires_in: number }
+  return { accessToken: data.access_token, expiresInSec: data.expires_in }
 }
 
 interface ProfileResponse {
@@ -213,11 +218,27 @@ async function fetchMinecraftProfile(mcAccessToken: string): Promise<MinecraftPr
 
 // ---------- Full chains ----------
 
-async function completeChain(msAccessToken: string): Promise<MinecraftProfile> {
+/** In-memory Minecraft session, reused by game launches until near expiry. */
+export interface MinecraftSession {
+  profile: MinecraftProfile
+  mcAccessToken: string
+  expiresAt: number
+}
+
+let cachedSession: MinecraftSession | null = null
+
+async function completeChain(msAccessToken: string): Promise<MinecraftSession> {
   const xbl = await xboxLiveAuth(msAccessToken)
   const xsts = await xstsAuth(xbl.token)
   const mcToken = await minecraftLogin(xsts.userHash, xsts.token)
-  return fetchMinecraftProfile(mcToken)
+  const profile = await fetchMinecraftProfile(mcToken.accessToken)
+  cachedSession = {
+    profile,
+    mcAccessToken: mcToken.accessToken,
+    // Refresh 10 minutes before the token actually dies.
+    expiresAt: Date.now() + (mcToken.expiresInSec - 600) * 1000
+  }
+  return cachedSession
 }
 
 export interface AuthResult {
@@ -228,14 +249,39 @@ export interface AuthResult {
 export async function loginInteractive(parent: BrowserWindow | null): Promise<AuthResult> {
   const code = await openAuthWindow(parent)
   const tokens = await exchangeAuthCode(code)
-  const profile = await completeChain(tokens.accessToken)
-  return { profile, refreshToken: tokens.refreshToken }
+  const session = await completeChain(tokens.accessToken)
+  return { profile: session.profile, refreshToken: tokens.refreshToken }
 }
 
 export async function loginSilent(refreshToken: string): Promise<AuthResult> {
   const tokens = await refreshMsTokens(refreshToken)
-  const profile = await completeChain(tokens.accessToken)
-  return { profile, refreshToken: tokens.refreshToken }
+  const session = await completeChain(tokens.accessToken)
+  return { profile: session.profile, refreshToken: tokens.refreshToken }
+}
+
+/**
+ * Returns a valid Minecraft session for launching the game, refreshing
+ * through the full chain when the cached token is stale.
+ * `getFreshTokens` lets the caller own refresh-token storage.
+ */
+export async function getMinecraftSession(
+  loadStoredRefreshToken: () => string | null,
+  persistRefreshToken: (token: string) => void
+): Promise<MinecraftSession> {
+  if (cachedSession !== null && cachedSession.expiresAt > Date.now()) {
+    return cachedSession
+  }
+  const refreshToken = loadStoredRefreshToken()
+  if (refreshToken === null) {
+    throw new AuthError('You must log in before launching the game')
+  }
+  const tokens = await refreshMsTokens(refreshToken)
+  persistRefreshToken(tokens.refreshToken)
+  return completeChain(tokens.accessToken)
+}
+
+export function clearCachedSession(): void {
+  cachedSession = null
 }
 
 export async function clearAuthSession(): Promise<void> {

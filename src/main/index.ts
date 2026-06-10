@@ -2,6 +2,7 @@ import { app, BrowserWindow, shell } from 'electron'
 import { join } from 'path'
 import { registerWindowIpc } from './ipc/window'
 import { registerAuthIpc } from './ipc/auth'
+import { registerModpackIpc } from './ipc/modpacks'
 
 function createWindow(): void {
   const win = new BrowserWindow({
@@ -37,6 +38,7 @@ function createWindow(): void {
 app.whenReady().then(() => {
   registerWindowIpc()
   registerAuthIpc()
+  registerModpackIpc()
   createWindow()
 
   app.on('activate', () => {
