@@ -1,0 +1,47 @@
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: var(--sidebar-width);
+  flex-shrink: 0;
+  padding: 8px 0 16px;
+}
+
+.separator {
+  width: 32px;
+  height: 1px;
+  background: var(--border);
+  margin: 4px 0;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.recentSlot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--icon-radius);
+  color: var(--text-on-accent);
+  transition: filter 0.15s;
+}
+
+.recentSlot:hover {
+  filter: brightness(1.1);
+}
+
+.tintTeal {
+  background: var(--accent);
+}
+
+.tintMint {
+  background: var(--accent-mint);
+}
+
+.tintLight {
+  background: var(--accent-light);
+}

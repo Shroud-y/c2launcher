@@ -1,0 +1,74 @@
+.topBar {
+  display: flex;
+  align-items: center;
+  height: var(--topbar-height);
+  flex-shrink: 0;
+  -webkit-app-region: drag;
+}
+
+.logoSlot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--sidebar-width);
+  flex-shrink: 0;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-weight: 700;
+  font-size: 18px;
+}
+
+.logo sup {
+  color: var(--accent);
+  font-size: 10px;
+  margin-top: -8px;
+}
+
+.separator {
+  width: 1px;
+  height: 28px;
+  background: var(--border);
+  margin: 0 16px;
+}
+
+.title {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.windowButtons {
+  display: flex;
+  margin-left: auto;
+  height: 100%;
+  -webkit-app-region: no-drag;
+}
+
+.windowButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 100%;
+  color: var(--text-muted);
+  transition: background 0.15s, color 0.15s;
+}
+
+.windowButton:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.closeButton:hover {
+  background: #e81123;
+  color: #ffffff;
+}

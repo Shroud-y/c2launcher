@@ -1,0 +1,66 @@
+:root {
+  --bg-primary:    #0f1117;
+  --bg-secondary:  #161b22;
+  --bg-hover:      #1e242d;
+  --accent:        #4ecdc4;
+  --accent-soft:   #3db8b0;
+  --accent-mint:   #52d9a3;
+  --accent-light:  #a3e9c0;
+  --text-primary:  #e6edf3;
+  --text-muted:    #8b949e;
+  --text-on-accent:#0f1117;
+  --border:        #21262d;
+  --trend-green:   #3fb950;
+  --sidebar-width: 68px;
+  --right-panel-width: 200px;
+  --topbar-height: 56px;
+  --card-radius:   12px;
+  --icon-radius:   14px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+
+button {
+  font-family: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+input {
+  font-family: inherit;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--bg-hover);
+}

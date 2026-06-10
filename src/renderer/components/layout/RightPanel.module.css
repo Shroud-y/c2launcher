@@ -1,0 +1,30 @@
+.panel {
+  width: var(--right-panel-width);
+  flex-shrink: 0;
+  border-left: 1px solid var(--accent);
+  padding: 24px 16px;
+  overflow-y: auto;
+}
+
+.account {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.accountText {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.username {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.accountType {
+  font-size: 11px;
+  color: var(--text-muted);
+}
