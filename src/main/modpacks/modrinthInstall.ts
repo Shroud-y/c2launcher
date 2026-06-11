@@ -1,7 +1,7 @@
 import AdmZip from 'adm-zip'
 import { mkdir, writeFile } from 'fs/promises'
 import { dirname, join } from 'path'
-import { modrinthProvider } from '../discover/modrinth'
+import { getModrinthVersion, modrinthProvider } from '../discover/modrinth'
 import { downloadAll, type DownloadTask } from '../minecraft/install'
 import { createModpack, deleteModpack, instanceDirFor } from './store'
 import type { ModLoader, Modpack } from '@shared/types'
@@ -53,9 +53,19 @@ export interface PackInstallReporter {
 
 export async function installModrinthPack(
   projectId: string,
-  report: PackInstallReporter
+  report: PackInstallReporter,
+  versionId?: string
 ): Promise<Modpack> {
-  const versions = await modrinthProvider.getProjectVersions(projectId)
+  let versions
+  if (versionId !== undefined) {
+    const version = await getModrinthVersion(versionId)
+    if (version.projectId !== projectId) {
+      throw new Error('Version does not belong to this project')
+    }
+    versions = [version]
+  } else {
+    versions = await modrinthProvider.getProjectVersions(projectId)
+  }
   const packFile = versions
     .flatMap((v) => v.files)
     .find((f) => f.filename.endsWith('.mrpack') && f.primary)

@@ -1,34 +1,57 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import DOMPurify from 'dompurify'
+import { marked } from 'marked'
 import { CloseIcon, WindIcon } from '../common/Icons'
-import InstallAction from './InstallAction'
+import InstallAction, { installTargets, PICKER_TITLES, pickerEmptyMessage } from './InstallAction'
+import InstancePicker from './InstancePicker'
 import { formatDownloads } from './SearchResultCard'
 import { useDiscoverStore } from '../../store/discoverStore'
 import { useModalStore } from '../../store/modalStore'
+import { useModpackStore } from '../../store/modpackStore'
 import type { ProjectDetail, ProjectVersionInfo, SearchResult } from '@shared/types'
 import styles from './ProjectModal.module.css'
 
 type ModalTab = 'description' | 'versions'
 
-/**
- * Crude but safe markdown-to-text: strips html tags, images and md
- * tokens so the description reads as plain prose. A real markdown
- * renderer needs a sanitizer and arrives with a later polish pass.
- */
-function cleanBody(markdown: string): string {
-  return markdown
-    .replace(/<details[\s\S]*?<\/details>/gi, '')
-    .replace(/<[^>]+>/g, '')
-    .replace(/!\[([^\]]*)\]\([^)]*\)/g, '')
-    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
-    .replace(/^#{1,6}\s*/gm, '')
-    .replace(/[*_`]+/g, '')
-    .replace(/^\s*[-=]{3,}\s*$/gm, '')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim()
+// External links only — the main process opens them in the system browser.
+DOMPurify.addHook('afterSanitizeAttributes', (node) => {
+  if (node.tagName === 'A') {
+    node.setAttribute('target', '_blank')
+    node.setAttribute('rel', 'noopener noreferrer')
+  }
+})
+
+function renderBody(markdown: string): string {
+  const html = marked.parse(markdown, { async: false })
+  return DOMPurify.sanitize(html, { USE_PROFILES: { html: true } })
 }
 
 function capitalize(word: string): string {
   return word.charAt(0).toUpperCase() + word.slice(1)
+}
+
+function releaseKey(version: string): number[] | null {
+  const parts = version.split('.').map(Number)
+  return parts.every((n) => Number.isInteger(n) && n >= 0) ? parts : null
+}
+
+/**
+ * Newest first. Releases (dotted numbers) compare numerically and sort
+ * above snapshots/pre-releases, which fall back to reverse-lexicographic.
+ */
+function compareGameVersionsDesc(a: string, b: string): number {
+  const ka = releaseKey(a)
+  const kb = releaseKey(b)
+  if (ka !== null && kb !== null) {
+    for (let i = 0; i < Math.max(ka.length, kb.length); i += 1) {
+      const diff = (kb[i] ?? 0) - (ka[i] ?? 0)
+      if (diff !== 0) return diff
+    }
+    return 0
+  }
+  if (ka !== null) return -1
+  if (kb !== null) return 1
+  return b.localeCompare(a)
 }
 
 interface ProjectModalProps {
@@ -38,11 +61,26 @@ interface ProjectModalProps {
 export default function ProjectModal({ result }: ProjectModalProps): JSX.Element {
   const closeDiscoverProject = useModalStore((s) => s.closeDiscoverProject)
   const installError = useDiscoverStore((s) => s.installErrors[result.id] ?? '')
+  const category = useDiscoverStore((s) => s.category)
+  const installing = useDiscoverStore((s) => s.installing[result.id] === true)
+  const installPack = useDiscoverStore((s) => s.installPack)
+  const installContent = useDiscoverStore((s) => s.installContent)
+  const installTarget = useDiscoverStore((s) => s.installTarget)
+  const modpacks = useModpackStore((s) => s.modpacks)
+  const targetPack =
+    installTarget === null ? null : modpacks.find((m) => m.id === installTarget) ?? null
 
   const [tab, setTab] = useState<ModalTab>('description')
   const [detail, setDetail] = useState<ProjectDetail | null>(null)
   const [versions, setVersions] = useState<ProjectVersionInfo[] | null>(null)
   const [error, setError] = useState<string | null>(null)
+
+  const [loaderFilter, setLoaderFilter] = useState('')
+  const [gameVersionFilter, setGameVersionFilter] = useState('')
+  /** Version awaiting an instance choice in the picker popup. */
+  const [pickingVersionId, setPickingVersionId] = useState<string | null>(null)
+  /** Version whose install is in flight — drives the row button label. */
+  const [installingVersionId, setInstallingVersionId] = useState<string | null>(null)
 
   useEffect(() => {
     window.api.discover
@@ -55,9 +93,73 @@ export default function ProjectModal({ result }: ProjectModalProps): JSX.Element
     if (tab !== 'versions' || versions !== null) return
     window.api.discover
       .projectVersions(result.id)
-      .then(setVersions)
+      .then((vs) =>
+        // API order is not guaranteed — always newest first.
+        setVersions(
+          [...vs].sort((a, b) => Date.parse(b.datePublished) - Date.parse(a.datePublished))
+        )
+      )
       .catch(() => setError('Could not load versions'))
   }, [tab, versions, result.id])
+
+  const bodyHtml = useMemo(
+    () => (detail === null ? '' : renderBody(detail.body)),
+    [detail]
+  )
+
+  const loaderOptions = useMemo(() => {
+    const set = new Set<string>()
+    for (const v of versions ?? []) for (const l of v.loaders) set.add(l)
+    return [...set].sort()
+  }, [versions])
+
+  const gameVersionOptions = useMemo(() => {
+    const set = new Set<string>()
+    for (const v of versions ?? []) for (const gv of v.gameVersions) set.add(gv)
+    return [...set].sort(compareGameVersionsDesc)
+  }, [versions])
+
+  const visibleVersions = useMemo(
+    () =>
+      (versions ?? []).filter(
+        (v) =>
+          (loaderFilter === '' || v.loaders.includes(loaderFilter)) &&
+          (gameVersionFilter === '' || v.gameVersions.includes(gameVersionFilter))
+      ),
+    [versions, loaderFilter, gameVersionFilter]
+  )
+
+  /** Does this version run on the given instance? */
+  function versionFits(v: ProjectVersionInfo, pack: { loader: string | null; gameVersion: string | null }): boolean {
+    if (pack.gameVersion === null || !v.gameVersions.includes(pack.gameVersion)) return false
+    if (category === 'mods') return pack.loader !== null && v.loaders.includes(pack.loader)
+    return true
+  }
+
+  function onVersionInstallClick(versionId: string): void {
+    if (category === 'modpacks') {
+      setInstallingVersionId(versionId)
+      void installPack(result.id, versionId).finally(() => setInstallingVersionId(null))
+    } else if (installTarget !== null) {
+      // Locked to one instance (+ button flow) — no picker.
+      setInstallingVersionId(versionId)
+      void installContent(result.id, installTarget, versionId).finally(() =>
+        setInstallingVersionId(null)
+      )
+    } else {
+      setPickingVersionId(versionId)
+    }
+  }
+
+  function onVersionTargetPicked(modpackId: string): void {
+    const versionId = pickingVersionId
+    setPickingVersionId(null)
+    if (versionId === null) return
+    setInstallingVersionId(versionId)
+    void installContent(result.id, modpackId, versionId).finally(() =>
+      setInstallingVersionId(null)
+    )
+  }
 
   const downloads = detail?.downloads ?? result.downloads
   const followers = detail?.followers
@@ -134,7 +236,10 @@ export default function ProjectModal({ result }: ProjectModalProps): JSX.Element
             {detail === null ? (
               <span className={styles.muted}>Loading…</span>
             ) : (
-              <p className={styles.description}>{cleanBody(detail.body)}</p>
+              <div
+                className={styles.markdown}
+                dangerouslySetInnerHTML={{ __html: bodyHtml }}
+              />
             )}
           </div>
         )}
@@ -146,27 +251,94 @@ export default function ProjectModal({ result }: ProjectModalProps): JSX.Element
             ) : versions.length === 0 ? (
               <span className={styles.muted}>No versions published.</span>
             ) : (
-              <ul className={styles.versionList}>
-                {versions.map((v) => (
-                  <li key={v.id} className={styles.versionRow}>
-                    <div className={styles.versionInfo}>
-                      <span className={styles.versionNumber}>{v.versionNumber}</span>
-                      <span className={styles.versionMeta}>
-                        {[...v.loaders.map(capitalize), ...v.gameVersions.slice(0, 4)].join(' · ')}
-                        {v.gameVersions.length > 4 ? ' · …' : ''}
-                      </span>
-                    </div>
-                    <div className={styles.versionSide}>
-                      <span className={styles.versionMeta}>↓ {formatDownloads(v.downloads)}</span>
-                      <span className={styles.versionMeta}>
-                        {new Date(v.datePublished).toLocaleDateString()}
-                      </span>
-                    </div>
-                  </li>
-                ))}
-              </ul>
+              <>
+                <div className={styles.versionFilters}>
+                  <select
+                    className={styles.filterSelect}
+                    value={loaderFilter}
+                    onChange={(e) => setLoaderFilter(e.target.value)}
+                  >
+                    <option value="">All loaders</option>
+                    {loaderOptions.map((l) => (
+                      <option key={l} value={l}>
+                        {capitalize(l)}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    className={styles.filterSelect}
+                    value={gameVersionFilter}
+                    onChange={(e) => setGameVersionFilter(e.target.value)}
+                  >
+                    <option value="">All game versions</option>
+                    {gameVersionOptions.map((gv) => (
+                      <option key={gv} value={gv}>
+                        {gv}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {visibleVersions.length === 0 ? (
+                  <span className={styles.muted}>No versions match the filters.</span>
+                ) : (
+                  <ul className={styles.versionList}>
+                    {visibleVersions.map((v) => (
+                      <li key={v.id} className={styles.versionRow}>
+                        <div className={styles.versionInfo}>
+                          <span className={styles.versionNumber}>{v.versionNumber}</span>
+                          <span className={styles.versionMeta}>
+                            {[...v.loaders.map(capitalize), ...v.gameVersions.slice(0, 4)].join(' · ')}
+                            {v.gameVersions.length > 4 ? ' · …' : ''}
+                          </span>
+                        </div>
+                        <div className={styles.versionSide}>
+                          <span className={styles.versionMeta}>↓ {formatDownloads(v.downloads)}</span>
+                          <span className={styles.versionMeta}>
+                            {new Date(v.datePublished).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          className={styles.downloadButton}
+                          disabled={
+                            installingVersionId !== null ||
+                            installing ||
+                            (category !== 'modpacks' &&
+                              targetPack !== null &&
+                              !versionFits(v, targetPack))
+                          }
+                          title={
+                            category !== 'modpacks' &&
+                            targetPack !== null &&
+                            !versionFits(v, targetPack)
+                              ? `Not compatible with ${targetPack.name}`
+                              : undefined
+                          }
+                          onClick={() => onVersionInstallClick(v.id)}
+                        >
+                          {installingVersionId === v.id ? 'Installing…' : 'Install'}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </>
             )}
           </div>
+        )}
+
+        {pickingVersionId !== null && category !== 'modpacks' && (
+          <InstancePicker
+            title={PICKER_TITLES[category]}
+            targets={installTargets(category, modpacks).filter((m) => {
+              // Only instances this exact version runs on.
+              const v = (versions ?? []).find((x) => x.id === pickingVersionId)
+              return v === undefined || versionFits(v, m)
+            })}
+            emptyMessage={pickerEmptyMessage(category)}
+            onPick={onVersionTargetPicked}
+            onClose={() => setPickingVersionId(null)}
+          />
         )}
       </div>
     </div>

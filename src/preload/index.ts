@@ -5,8 +5,9 @@ import type {
   CreateModpackParams,
   GameLogLine,
   GameState,
-  InstalledMod,
-  InstallModParams,
+  InstallableCategory,
+  InstalledContent,
+  InstallContentParams,
   InstallProgress,
   MinecraftProfile,
   Modpack,
@@ -41,19 +42,27 @@ const api = {
       ipcRenderer.invoke(IpcChannel.ModpackCreate, params),
     updateSettings: (id: string, settings: ModpackSettings): Promise<Modpack | null> =>
       ipcRenderer.invoke(IpcChannel.ModpackUpdateSettings, id, settings),
+    setIcon: (id: string, clear: boolean): Promise<Modpack | null> =>
+      ipcRenderer.invoke(IpcChannel.ModpackSetIcon, id, clear),
     launch: (id: string): Promise<void> => ipcRenderer.invoke(IpcChannel.ModpackLaunch, id),
     stop: (id: string): Promise<void> => ipcRenderer.invoke(IpcChannel.ModpackStop, id),
     openFolder: (id: string): Promise<void> => ipcRenderer.invoke(IpcChannel.ModpackOpenFolder, id),
     remove: (id: string): Promise<void> => ipcRenderer.invoke(IpcChannel.ModpackDelete, id),
-    installModrinthPack: (projectId: string): Promise<Modpack> =>
-      ipcRenderer.invoke(IpcChannel.ModpackInstallModrinth, projectId),
-    installMod: (params: InstallModParams): Promise<InstalledMod> =>
+    installModrinthPack: (projectId: string, versionId?: string): Promise<Modpack> =>
+      ipcRenderer.invoke(IpcChannel.ModpackInstallModrinth, projectId, versionId),
+    installContent: (params: InstallContentParams): Promise<InstalledContent> =>
       ipcRenderer.invoke(IpcChannel.ModpackInstallMod, params),
-    mods: (id: string): Promise<InstalledMod[]> => ipcRenderer.invoke(IpcChannel.ModpackMods, id),
-    toggleMod: (id: string, fileName: string, enabled: boolean): Promise<InstalledMod> =>
-      ipcRenderer.invoke(IpcChannel.ModpackToggleMod, id, fileName, enabled),
-    removeMod: (id: string, fileName: string): Promise<void> =>
-      ipcRenderer.invoke(IpcChannel.ModpackRemoveMod, id, fileName),
+    content: (id: string, category: InstallableCategory): Promise<InstalledContent[]> =>
+      ipcRenderer.invoke(IpcChannel.ModpackMods, id, category),
+    toggleContent: (
+      id: string,
+      category: InstallableCategory,
+      fileName: string,
+      enabled: boolean
+    ): Promise<InstalledContent> =>
+      ipcRenderer.invoke(IpcChannel.ModpackToggleMod, id, category, fileName, enabled),
+    removeContent: (id: string, category: InstallableCategory, fileName: string): Promise<void> =>
+      ipcRenderer.invoke(IpcChannel.ModpackRemoveMod, id, category, fileName),
     onInstallProgress: (cb: (p: InstallProgress) => void): (() => void) =>
       subscribe(IpcChannel.ModpackInstallProgress, cb),
     onGameState: (cb: (s: GameState) => void): (() => void) =>

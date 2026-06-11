@@ -1,19 +1,46 @@
 import { useEffect, useRef, useState } from 'react'
-import { CloseIcon, FolderIcon, WindIcon } from '../common/Icons'
+import { useNavigate } from 'react-router-dom'
+import { CloseIcon, FolderIcon, PlusIcon, WindIcon } from '../common/Icons'
 import { formatSubtitle } from '../../data/format'
+import { useDiscoverStore } from '../../store/discoverStore'
 import { useModalStore } from '../../store/modalStore'
 import { useModpackStore } from '../../store/modpackStore'
-import type { InstalledMod } from '@shared/types'
+import type { InstallableCategory, InstalledContent } from '@shared/types'
 import styles from './ModpackModal.module.css'
 
-type ModalTab = 'mods' | 'settings' | 'logs'
+const CONTENT_TABS: InstallableCategory[] = ['mods', 'resourcepacks', 'shaders', 'datapacks']
+
+type ModalTab = InstallableCategory | 'settings' | 'logs'
+
+const TAB_LABELS: Record<ModalTab, string> = {
+  mods: 'Mods',
+  resourcepacks: 'Resource packs',
+  shaders: 'Shaders',
+  datapacks: 'Data packs',
+  settings: 'Settings',
+  logs: 'Logs'
+}
+
+const EMPTY_NOTES: Record<InstallableCategory, { label: string; folder: string }> = {
+  mods: { label: 'mods', folder: 'mods' },
+  resourcepacks: { label: 'resource packs', folder: 'resourcepacks' },
+  shaders: { label: 'shaders', folder: 'shaderpacks' },
+  datapacks: { label: 'data packs', folder: 'datapacks' }
+}
+
+function isContentTab(tab: ModalTab): tab is InstallableCategory {
+  return (CONTENT_TABS as string[]).includes(tab)
+}
 
 interface ModpackModalProps {
   modpackId: string
 }
 
 export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Element {
+  const navigate = useNavigate()
   const closeModpack = useModalStore((s) => s.closeModpack)
+  const setInstallTarget = useDiscoverStore((s) => s.setInstallTarget)
+  const setDiscoverCategory = useDiscoverStore((s) => s.setCategory)
   const {
     modpacks,
     installProgress,
@@ -23,7 +50,8 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
     launch,
     stop,
     remove,
-    updateSettings
+    updateSettings,
+    setIcon
   } = useModpackStore()
 
   const localPack = modpacks.find((m) => m.id === modpackId) ?? null
@@ -39,16 +67,19 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
   const [settingsError, setSettingsError] = useState<string | null>(null)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
-  const [mods, setMods] = useState<InstalledMod[] | null>(null)
+  const [content, setContent] = useState<
+    Partial<Record<InstallableCategory, InstalledContent[]>>
+  >({})
   const [modsError, setModsError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (tab !== 'mods' || mods !== null) return
+    if (!isContentTab(tab) || content[tab] !== undefined) return
+    const category = tab
     window.api.modpack
-      .mods(modpackId)
-      .then(setMods)
-      .catch(() => setModsError('Could not read the mods folder'))
-  }, [tab, mods, modpackId])
+      .content(modpackId, category)
+      .then((items) => setContent((c) => ({ ...c, [category]: items })))
+      .catch(() => setModsError(`Could not read the ${EMPTY_NOTES[category].folder} folder`))
+  }, [tab, content, modpackId])
 
   useEffect(() => {
     if (tab !== 'settings' || versions.length > 0) return
@@ -91,6 +122,24 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
     void launch(modpackId)
   }
 
+  /** + button: browse Discover with installs locked to this instance. */
+  function addContent(): void {
+    setInstallTarget(modpackId)
+    setDiscoverCategory('mods')
+    closeModpack()
+    navigate('/discover')
+  }
+
+  async function changeIcon(clear: boolean): Promise<void> {
+    setSettingsError(null)
+    try {
+      await setIcon(modpackId, clear)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Could not set the icon'
+      setSettingsError(message.replace(/^Error invoking remote method '[^']+': (?:\w*Error: )?/, ''))
+    }
+  }
+
   async function confirmDelete(): Promise<void> {
     setDeleting(true)
     setSettingsError(null)
@@ -105,28 +154,46 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
     }
   }
 
-  async function toggleMod(mod: InstalledMod): Promise<void> {
+  async function toggleContent(
+    category: InstallableCategory,
+    item: InstalledContent
+  ): Promise<void> {
     setModsError(null)
     try {
-      const updated = await window.api.modpack.toggleMod(modpackId, mod.fileName, !mod.enabled)
-      setMods((current) =>
-        current === null ? null : current.map((m) => (m.fileName === mod.fileName ? updated : m))
+      const updated = await window.api.modpack.toggleContent(
+        modpackId,
+        category,
+        item.fileName,
+        !item.enabled
       )
+      setContent((c) => ({
+        ...c,
+        [category]: (c[category] ?? []).map((m) =>
+          // The toggle response carries no Modrinth metadata — keep ours.
+          m.fileName === item.fileName
+            ? { ...m, fileName: updated.fileName, enabled: updated.enabled }
+            : m
+        )
+      }))
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Could not toggle the mod'
+      const message = err instanceof Error ? err.message : 'Could not toggle the file'
       setModsError(message.replace(/^Error invoking remote method '[^']+': (?:\w*Error: )?/, ''))
     }
   }
 
-  async function removeMod(mod: InstalledMod): Promise<void> {
+  async function removeContent(
+    category: InstallableCategory,
+    item: InstalledContent
+  ): Promise<void> {
     setModsError(null)
     try {
-      await window.api.modpack.removeMod(modpackId, mod.fileName)
-      setMods((current) =>
-        current === null ? null : current.filter((m) => m.fileName !== mod.fileName)
-      )
+      await window.api.modpack.removeContent(modpackId, category, item.fileName)
+      setContent((c) => ({
+        ...c,
+        [category]: (c[category] ?? []).filter((m) => m.fileName !== item.fileName)
+      }))
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Could not remove the mod'
+      const message = err instanceof Error ? err.message : 'Could not remove the file'
       setModsError(message.replace(/^Error invoking remote method '[^']+': (?:\w*Error: )?/, ''))
     }
   }
@@ -161,15 +228,36 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
         </button>
 
         <header className={styles.header}>
-          <span className={styles.icon}>
-            <WindIcon size={36} />
-          </span>
+          <button
+            type="button"
+            className={styles.icon}
+            title="Change icon"
+            aria-label="Change icon"
+            onClick={() => void changeIcon(false)}
+          >
+            {(pack.icon ?? null) !== null ? (
+              <img className={styles.iconImage} src={pack.icon ?? ''} alt="" />
+            ) : (
+              <WindIcon size={36} />
+            )}
+          </button>
           <div className={styles.headerText}>
             <h2 className={styles.name}>{localPack?.name ?? pack.name}</h2>
             {subtitle !== null && <span className={styles.badge}>{subtitle}</span>}
             {statusText !== null && <span className={styles.status}>{statusText}</span>}
           </div>
           <div className={styles.headerActions}>
+            {localPack !== null && (
+              <button
+                type="button"
+                className={styles.folderButton}
+                title="Add content from Discover"
+                aria-label="Add content from Discover"
+                onClick={addContent}
+              >
+                <PlusIcon />
+              </button>
+            )}
             {localPack !== null && (
               <button
                 type="button"
@@ -204,53 +292,66 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
         {launchError !== null && <div className={styles.error}>{launchError}</div>}
 
         <nav className={styles.tabs}>
-          {(['mods', 'settings', 'logs'] as const).map((t) => (
+          {([...CONTENT_TABS, 'settings', 'logs'] as ModalTab[]).map((t) => (
             <button
               key={t}
               type="button"
               className={tab === t ? styles.tabActive : styles.tab}
               onClick={() => setTab(t)}
             >
-              {t.charAt(0).toUpperCase() + t.slice(1)}
+              {TAB_LABELS[t]}
             </button>
           ))}
         </nav>
 
-        {tab === 'mods' && (
+        {isContentTab(tab) && (
           <>
             {modsError !== null && <div className={styles.error}>{modsError}</div>}
-            {mods === null ? (
-              <div className={styles.placeholderNote}>Reading mods…</div>
-            ) : mods.length === 0 ? (
+            {content[tab] === undefined ? (
+              <div className={styles.placeholderNote}>Reading {EMPTY_NOTES[tab].label}…</div>
+            ) : (content[tab] ?? []).length === 0 ? (
               <div className={styles.placeholderNote}>
-                No mods installed. Find some on the Discover page, or drop jars into the
-                modpack&apos;s <code>mods</code> folder.
+                No {EMPTY_NOTES[tab].label} installed. Find some on the Discover page, or drop
+                files into the modpack&apos;s <code>{EMPTY_NOTES[tab].folder}</code> folder.
               </div>
             ) : (
               <ul className={styles.modList}>
-                {mods.map((mod) => (
-                  <li key={mod.fileName} className={styles.modRow}>
+                {(content[tab] ?? []).map((item) => (
+                  <li key={item.fileName} className={styles.modRow}>
+                    {item.iconUrl !== null ? (
+                      <img className={styles.modIcon} src={item.iconUrl} alt="" />
+                    ) : (
+                      <span className={styles.modIconFallback}>
+                        <WindIcon size={18} />
+                      </span>
+                    )}
                     <div className={styles.modInfo}>
-                      <span className={styles.modName}>{mod.name}</span>
-                      {!mod.enabled && <span className={styles.modVersion}>Disabled</span>}
+                      <span className={styles.modName}>{item.name}</span>
+                      {(item.versionNumber !== null || !item.enabled) && (
+                        <span className={styles.modVersion}>
+                          {[item.versionNumber, item.enabled ? null : 'Disabled']
+                            .filter((p) => p !== null)
+                            .join(' · ')}
+                        </span>
+                      )}
                     </div>
                     <div className={styles.modActions}>
                       <button
                         type="button"
                         role="switch"
-                        aria-checked={mod.enabled}
-                        aria-label={`${mod.enabled ? 'Disable' : 'Enable'} ${mod.name}`}
-                        className={mod.enabled ? styles.toggleOn : styles.toggle}
-                        onClick={() => void toggleMod(mod)}
+                        aria-checked={item.enabled}
+                        aria-label={`${item.enabled ? 'Disable' : 'Enable'} ${item.name}`}
+                        className={item.enabled ? styles.toggleOn : styles.toggle}
+                        onClick={() => void toggleContent(tab, item)}
                       >
                         <span className={styles.toggleKnob} />
                       </button>
                       <button
                         type="button"
                         className={styles.modRemove}
-                        aria-label={`Remove ${mod.name}`}
-                        title="Remove mod"
-                        onClick={() => void removeMod(mod)}
+                        aria-label={`Remove ${item.name}`}
+                        title="Remove file"
+                        onClick={() => void removeContent(tab, item)}
                       >
                         <CloseIcon size={14} />
                       </button>
@@ -273,6 +374,28 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
                 disabled={localPack === null}
               />
             </label>
+            <div className={styles.field}>
+              <span className={styles.fieldLabel}>Icon</span>
+              <div className={styles.iconRow}>
+                <button
+                  type="button"
+                  className={styles.cancelButton}
+                  disabled={localPack === null}
+                  onClick={() => void changeIcon(false)}
+                >
+                  Choose image…
+                </button>
+                {(pack.icon ?? null) !== null && (
+                  <button
+                    type="button"
+                    className={styles.cancelButton}
+                    onClick={() => void changeIcon(true)}
+                  >
+                    Use default
+                  </button>
+                )}
+              </div>
+            </div>
             <label className={styles.field}>
               <span className={styles.fieldLabel}>
                 Memory — {(memoryMb / 1024).toFixed(1)} GB

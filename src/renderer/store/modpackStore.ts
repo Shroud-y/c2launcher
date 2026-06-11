@@ -21,6 +21,8 @@ interface ModpackState {
   load: () => Promise<void>
   create: (params: CreateModpackParams) => Promise<Modpack>
   updateSettings: (id: string, settings: ModpackSettings) => Promise<void>
+  /** Opens a file dialog (or clears) the instance icon. */
+  setIcon: (id: string, clear: boolean) => Promise<void>
   launch: (id: string) => Promise<void>
   stop: (id: string) => Promise<void>
   remove: (id: string) => Promise<void>
@@ -54,6 +56,14 @@ export const useModpackStore = create<ModpackState>((set, get) => ({
 
   updateSettings: async (id, settings): Promise<void> => {
     const updated = await window.api.modpack.updateSettings(id, settings)
+    if (updated !== null) {
+      set({ modpacks: get().modpacks.map((m) => (m.id === id ? updated : m)) })
+    }
+  },
+
+  setIcon: async (id, clear): Promise<void> => {
+    const updated = await window.api.modpack.setIcon(id, clear)
+    // Null means the file dialog was cancelled.
     if (updated !== null) {
       set({ modpacks: get().modpacks.map((m) => (m.id === id ? updated : m)) })
     }

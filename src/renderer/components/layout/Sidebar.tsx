@@ -2,6 +2,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import IconButton from '../common/IconButton'
 import { CompassIcon, GearIcon, HomeIcon, LogoutIcon, PlusIcon, WindIcon } from '../common/Icons'
 import { useAuthStore } from '../../store/authStore'
+import { useDiscoverStore } from '../../store/discoverStore'
 import { useModalStore } from '../../store/modalStore'
 import { useModpackStore } from '../../store/modpackStore'
 import type { IconTint } from '@shared/types'
@@ -21,6 +22,7 @@ export default function Sidebar(): JSX.Element {
   const openCreate = useModalStore((s) => s.openCreate)
   const openSettings = useModalStore((s) => s.openSettings)
   const modpacks = useModpackStore((s) => s.modpacks)
+  const setInstallTarget = useDiscoverStore((s) => s.setInstallTarget)
 
   const recent = [...modpacks]
     .filter((m) => m.lastPlayedAt !== null)
@@ -32,7 +34,16 @@ export default function Sidebar(): JSX.Element {
       <IconButton label="Home" active={pathname === '/'} onClick={() => navigate('/')}>
         <HomeIcon />
       </IconButton>
-      <IconButton label="Discover" active={pathname === '/discover'} onClick={() => navigate('/discover')}>
+      <IconButton
+        label="Discover"
+        active={pathname === '/discover'}
+        onClick={() => {
+          // Entering Discover via the sidebar is a fresh browse — drop
+          // any instance lock set by an instance's + button.
+          setInstallTarget(null)
+          navigate('/discover')
+        }}
+      >
         <CompassIcon />
       </IconButton>
 
@@ -47,7 +58,11 @@ export default function Sidebar(): JSX.Element {
           aria-label={pack.name}
           onClick={() => openModpack(pack.id)}
         >
-          <WindIcon />
+          {(pack.icon ?? null) !== null ? (
+            <img className={styles.recentIcon} src={pack.icon ?? ''} alt="" />
+          ) : (
+            <WindIcon />
+          )}
         </button>
       ))}
 

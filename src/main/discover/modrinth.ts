@@ -28,8 +28,14 @@ function userAgent(): string {
   return `Shroud-y/c2-launcher/${app.getVersion()}`
 }
 
-async function fetchJson<T>(url: string): Promise<T> {
-  const res = await fetch(url, { headers: { 'User-Agent': userAgent() } })
+async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(url, {
+    ...init,
+    headers: {
+      'User-Agent': userAgent(),
+      ...(init?.body !== undefined ? { 'Content-Type': 'application/json' } : {})
+    }
+  })
   if (!res.ok) {
     throw new Error(`Modrinth request failed (${res.status} ${res.statusText})`)
   }
@@ -175,6 +181,83 @@ interface ModrinthProject {
   categories?: string[]
   game_versions?: string[]
   loaders?: string[]
+}
+
+/** Single version lookup — used by the per-version download action. */
+export async function getModrinthVersion(versionId: string): Promise<ProviderVersion> {
+  const raw = await fetchJson<ModrinthVersion>(
+    `${BASE_URL}/version/${encodeURIComponent(versionId)}`
+  )
+  return toProviderVersion(raw)
+}
+
+/** Local-file metadata resolved from a sha1 hash. */
+export interface HashMatch {
+  projectId: string
+  versionNumber: string
+}
+
+export interface ProjectSummary {
+  title: string
+  iconUrl: string | null
+}
+
+// 'unknown' marks hashes Modrinth doesn't recognize, so unrecognized
+// local files don't re-query on every listing.
+const hashCache = makeCache<HashMatch | 'unknown'>()
+const projectSummaryCache = makeCache<ProjectSummary>()
+
+/** Batch hash → version lookup; unknown hashes are absent from the result. */
+export async function getVersionsByHashes(hashes: string[]): Promise<Map<string, HashMatch>> {
+  const result = new Map<string, HashMatch>()
+  const missing: string[] = []
+  for (const hash of hashes) {
+    const cached = hashCache.get(hash)
+    if (cached === null) missing.push(hash)
+    else if (cached !== 'unknown') result.set(hash, cached)
+  }
+  if (missing.length === 0) return result
+
+  const raw = await fetchJson<Record<string, ModrinthVersion>>(`${BASE_URL}/version_files`, {
+    method: 'POST',
+    body: JSON.stringify({ hashes: missing, algorithm: 'sha1' })
+  })
+  for (const hash of missing) {
+    const version = raw[hash]
+    if (version !== undefined) {
+      const match: HashMatch = {
+        projectId: version.project_id,
+        versionNumber: version.version_number
+      }
+      hashCache.set(hash, match)
+      result.set(hash, match)
+    } else {
+      hashCache.set(hash, 'unknown')
+    }
+  }
+  return result
+}
+
+/** Batch project lookup for titles and icons. */
+export async function getProjectsByIds(ids: string[]): Promise<Map<string, ProjectSummary>> {
+  const result = new Map<string, ProjectSummary>()
+  const missing: string[] = []
+  for (const id of ids) {
+    const cached = projectSummaryCache.get(id)
+    if (cached !== null) result.set(id, cached)
+    else missing.push(id)
+  }
+  if (missing.length === 0) return result
+
+  const raw = await fetchJson<ModrinthProject[]>(
+    `${BASE_URL}/projects?ids=${encodeURIComponent(JSON.stringify(missing))}`
+  )
+  for (const project of raw) {
+    const summary: ProjectSummary = { title: project.title, iconUrl: project.icon_url }
+    projectSummaryCache.set(project.id, summary)
+    result.set(project.id, summary)
+  }
+  return result
 }
 
 export const modrinthProvider: ContentProvider = {

@@ -1,12 +1,14 @@
-import { BrowserWindow, ipcMain, shell, type WebContents } from 'electron'
-import { mkdir } from 'fs/promises'
+import { BrowserWindow, dialog, ipcMain, shell, type WebContents } from 'electron'
+import { mkdir, readFile, stat } from 'fs/promises'
+import { extname } from 'path'
 import { IpcChannel } from '@shared/ipc-channels'
 import type {
   CreateModpackParams,
   GameLogLine,
   GameState,
-  InstalledMod,
-  InstallModParams,
+  InstallableCategory,
+  InstalledContent,
+  InstallContentParams,
   InstallProgress,
   Modpack,
   ModpackSettings
@@ -24,7 +26,12 @@ import {
   updateModpack
 } from '../modpacks/store'
 import { installModrinthPack } from '../modpacks/modrinthInstall'
-import { installModFromModrinth, listMods, removeModFile, setModEnabled } from '../modpacks/mods'
+import {
+  installContentFromModrinth,
+  listContent,
+  removeContentFile,
+  setContentEnabled
+} from '../modpacks/mods'
 import { listReleaseVersionIds } from '../minecraft/manifest'
 import { ensureVersionInstalled } from '../minecraft/install'
 import { applyLoader } from '../minecraft/loader'
@@ -187,6 +194,44 @@ export function registerModpackIpc(): void {
     }
   )
 
+  ipcMain.handle(
+    IpcChannel.ModpackSetIcon,
+    async (event, id: string, clear: boolean): Promise<Modpack | null> => {
+      const modpack = getModpack(id)
+      if (modpack === null) throw new Error('Modpack not found')
+
+      if (clear) return updateModpack(id, { icon: null })
+
+      const win = BrowserWindow.fromWebContents(event.sender)
+      const options = {
+        title: 'Choose instance icon',
+        properties: ['openFile' as const],
+        filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif'] }]
+      }
+      const { canceled, filePaths } =
+        win !== null ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options)
+      const filePath = filePaths[0]
+      if (canceled || filePath === undefined) return null
+
+      // Icons live as data URLs in the registry JSON — keep them small.
+      const { size } = await stat(filePath)
+      if (size > 1024 * 1024) throw new Error('Icon too large — pick an image under 1 MB')
+
+      const mime: Record<string, string> = {
+        '.png': 'image/png',
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.webp': 'image/webp',
+        '.gif': 'image/gif'
+      }
+      const type = mime[extname(filePath).toLowerCase()]
+      if (type === undefined) throw new Error('Unsupported image type')
+
+      const data = await readFile(filePath)
+      return updateModpack(id, { icon: `data:${type};base64,${data.toString('base64')}` })
+    }
+  )
+
   ipcMain.handle(IpcChannel.ModpackDelete, async (_e, id: string): Promise<void> => {
     if (busy.has(id)) {
       throw new Error('Stop the game and wait for installs to finish before deleting')
@@ -206,7 +251,7 @@ export function registerModpackIpc(): void {
 
   ipcMain.handle(
     IpcChannel.ModpackInstallModrinth,
-    async (_e, projectId: string): Promise<Modpack> => {
+    async (_e, projectId: string, versionId?: string): Promise<Modpack> => {
       let packId: string | null = null
       try {
         const pack = await installModrinthPack(projectId, (p, percent, message) => {
@@ -215,7 +260,7 @@ export function registerModpackIpc(): void {
             busy.add(p.id)
           }
           sendProgress({ modpackId: p.id, phase: 'pack', percent: Math.round(percent), message })
-        })
+        }, versionId)
         sendProgress({ modpackId: pack.id, phase: 'done', percent: 100, message: 'Installed' })
         return pack
       } catch (err) {
@@ -232,26 +277,36 @@ export function registerModpackIpc(): void {
 
   ipcMain.handle(
     IpcChannel.ModpackInstallMod,
-    (_e, params: InstallModParams): Promise<InstalledMod> => installModFromModrinth(params)
+    (_e, params: InstallContentParams): Promise<InstalledContent> =>
+      installContentFromModrinth(params)
   )
 
   ipcMain.handle(
     IpcChannel.ModpackMods,
-    (_e, id: string): Promise<InstalledMod[]> => listMods(id)
+    (_e, id: string, category: InstallableCategory): Promise<InstalledContent[]> =>
+      listContent(id, category)
   )
 
   ipcMain.handle(
     IpcChannel.ModpackToggleMod,
-    (_e, id: string, fileName: string, enabled: boolean): Promise<InstalledMod> =>
-      setModEnabled(id, fileName, enabled)
+    (
+      _e,
+      id: string,
+      category: InstallableCategory,
+      fileName: string,
+      enabled: boolean
+    ): Promise<InstalledContent> => setContentEnabled(id, category, fileName, enabled)
   )
 
-  ipcMain.handle(IpcChannel.ModpackRemoveMod, async (_e, id: string, fileName: string): Promise<void> => {
-    if (busy.has(id)) {
-      throw new Error('Stop the game before removing mods')
+  ipcMain.handle(
+    IpcChannel.ModpackRemoveMod,
+    async (_e, id: string, category: InstallableCategory, fileName: string): Promise<void> => {
+      if (busy.has(id)) {
+        throw new Error('Stop the game before removing files')
+      }
+      await removeContentFile(id, category, fileName)
     }
-    await removeModFile(id, fileName)
-  })
+  )
 
   ipcMain.handle(IpcChannel.ModpackStop, (_e, id: string): void => {
     const child = runningProcesses.get(id)

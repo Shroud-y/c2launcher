@@ -24,6 +24,12 @@ interface DiscoverState {
   loading: boolean
   error: string | null
 
+  /**
+   * When set (via the + button on an instance), all content installs go
+   * straight into this modpack — no instance picker popup.
+   */
+  installTarget: string | null
+
   /** projectId → install in flight. */
   installing: Record<string, boolean>
   /** projectId → installed during this session. */
@@ -39,10 +45,11 @@ interface DiscoverState {
   setGameVersion: (version: string | null) => void
   setLoader: (loader: ModLoader | null) => void
   toggleTag: (tag: string) => void
+  setInstallTarget: (modpackId: string | null) => void
 
   search: () => Promise<void>
-  installPack: (projectId: string) => Promise<void>
-  installMod: (projectId: string, modpackId: string) => Promise<void>
+  installPack: (projectId: string, versionId?: string) => Promise<void>
+  installContent: (projectId: string, modpackId: string, versionId?: string) => Promise<void>
 }
 
 export const useDiscoverStore = create<DiscoverState>((set, get) => ({
@@ -60,9 +67,13 @@ export const useDiscoverStore = create<DiscoverState>((set, get) => ({
   loading: false,
   error: null,
 
+  installTarget: null,
+
   installing: {},
   installed: {},
   installErrors: {},
+
+  setInstallTarget: (installTarget): void => set({ installTarget }),
 
   setCategory: (category): void => set({ category, page: 1, tags: [] }),
   setText: (text): void => set({ text, page: 1 }),
@@ -78,7 +89,24 @@ export const useDiscoverStore = create<DiscoverState>((set, get) => ({
 
   search: async (): Promise<void> => {
     const generation = ++searchGeneration
-    const { category, text, sort, page, pageSize, gameVersion, loader, tags } = get()
+    const { category, text, sort, page, pageSize, tags, installTarget } = get()
+
+    let gameVersion = get().gameVersion ?? undefined
+    let loader = get().loader ?? undefined
+    // Locked to an instance: only show content that fits it. The loader
+    // facet only makes sense for mods — other content types carry
+    // pseudo-loaders ("minecraft", "iris", "datapack").
+    if (installTarget !== null && category !== 'modpacks') {
+      const pack = useModpackStore.getState().modpacks.find((m) => m.id === installTarget)
+      if (pack !== undefined) {
+        if (pack.gameVersion !== null) gameVersion = pack.gameVersion
+        loader =
+          category === 'mods' && pack.loader !== null && pack.loader !== 'vanilla'
+            ? pack.loader
+            : undefined
+      }
+    }
+
     set({ loading: true, error: null })
     try {
       const response = await window.api.discover.search({
@@ -87,8 +115,8 @@ export const useDiscoverStore = create<DiscoverState>((set, get) => ({
         sort,
         page,
         pageSize,
-        gameVersion: gameVersion ?? undefined,
-        loader: loader ?? undefined,
+        gameVersion,
+        loader,
         tags: tags.length > 0 ? tags : undefined
       })
       if (generation !== searchGeneration) return
@@ -100,13 +128,13 @@ export const useDiscoverStore = create<DiscoverState>((set, get) => ({
     }
   },
 
-  installPack: async (projectId): Promise<void> => {
+  installPack: async (projectId, versionId): Promise<void> => {
     set({
       installing: { ...get().installing, [projectId]: true },
       installErrors: { ...get().installErrors, [projectId]: '' }
     })
     try {
-      await window.api.modpack.installModrinthPack(projectId)
+      await window.api.modpack.installModrinthPack(projectId, versionId)
       await useModpackStore.getState().load()
       set({ installed: { ...get().installed, [projectId]: true } })
     } catch (err) {
@@ -118,14 +146,22 @@ export const useDiscoverStore = create<DiscoverState>((set, get) => ({
     }
   },
 
-  installMod: async (projectId, modpackId): Promise<void> => {
+  installContent: async (projectId, modpackId, versionId): Promise<void> => {
+    const category = get().category
+    if (category === 'modpacks') return
     set({
       installing: { ...get().installing, [projectId]: true },
       installErrors: { ...get().installErrors, [projectId]: '' }
     })
     try {
-      await window.api.modpack.installMod({ modpackId, projectId, source: 'modrinth' })
-      set({ installed: { ...get().installed, [projectId]: true } })
+      // No `installed` flag here — the same mod can go into several instances.
+      await window.api.modpack.installContent({
+        modpackId,
+        projectId,
+        source: 'modrinth',
+        category,
+        versionId
+      })
     } catch (err) {
       const message = err instanceof Error ? stripIpcPrefix(err.message) : 'Install failed'
       set({ installErrors: { ...get().installErrors, [projectId]: message } })

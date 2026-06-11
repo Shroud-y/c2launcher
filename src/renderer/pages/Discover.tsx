@@ -33,9 +33,14 @@ export default function Discover(): JSX.Element {
   const setCategory = useDiscoverStore((s) => s.setCategory)
   const setText = useDiscoverStore((s) => s.setText)
   const search = useDiscoverStore((s) => s.search)
+  const installTarget = useDiscoverStore((s) => s.installTarget)
+  const setInstallTarget = useDiscoverStore((s) => s.setInstallTarget)
 
   const modpacksLoaded = useModpackStore((s) => s.loaded)
   const loadModpacks = useModpackStore((s) => s.load)
+  const targetPack = useModpackStore((s) =>
+    installTarget === null ? null : s.modpacks.find((m) => m.id === installTarget) ?? null
+  )
 
   // Mod installs need the local pack list for the target picker.
   useEffect(() => {
@@ -50,10 +55,24 @@ export default function Discover(): JSX.Element {
     prevText.current = text
     const timer = setTimeout(() => void search(), delay)
     return () => clearTimeout(timer)
-  }, [category, text, sort, page, pageSize, gameVersion, loader, tags, search])
+  }, [category, text, sort, page, pageSize, gameVersion, loader, tags, installTarget, search])
 
   return (
     <div className={styles.page}>
+      {targetPack !== null && (
+        <div className={styles.targetBanner}>
+          <span>
+            Installing into <strong>{targetPack.name}</strong>
+          </span>
+          <button
+            type="button"
+            className={styles.targetClear}
+            onClick={() => setInstallTarget(null)}
+          >
+            ×
+          </button>
+        </div>
+      )}
       <CategoryTabs active={category} onChange={setCategory} />
       <SearchBar
         value={text}

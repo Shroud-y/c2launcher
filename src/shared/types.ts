@@ -14,6 +14,8 @@ export interface Modpack {
   gameVersion: string | null
   /** Pinned loader version (mrpack installs); null resolves latest at launch. */
   loaderVersion?: string | null
+  /** Custom icon as a data URL; absent/null renders the default glyph. */
+  icon?: string | null
   iconTint: IconTint
   memoryMb: number
   javaArgs: string
@@ -75,18 +77,26 @@ export interface GameLogLine {
   line: string
 }
 
-export interface InstalledMod {
+export interface InstalledContent {
   /** Actual file name on disk, including a .disabled suffix when off. */
   fileName: string
-  /** Display name — file name without .jar / .disabled suffixes. */
+  /** Display name — project title when known, else cleaned file name. */
   name: string
   enabled: boolean
+  /** Version string resolved from Modrinth by file hash; null offline/unknown. */
+  versionNumber: string | null
+  /** Project icon resolved from Modrinth by file hash; null offline/unknown. */
+  iconUrl: string | null
 }
 
-export interface InstallModParams {
+export interface InstallContentParams {
   modpackId: string
   projectId: string
   source: ContentSource
+  /** What kind of content this is — decides the destination folder. */
+  category: InstallableCategory
+  /** Exact version to install; absent picks the best match for the pack. */
+  versionId?: string
 }
 
 export interface MinecraftProfile {
@@ -102,6 +112,9 @@ export type ContentCategory =
   | 'resourcepacks'
   | 'datapacks'
   | 'shaders'
+
+/** Categories that install into an existing instance (everything but modpacks). */
+export type InstallableCategory = Exclude<ContentCategory, 'modpacks'>
 
 export interface SearchQuery {
   category: ContentCategory
@@ -136,7 +149,7 @@ export interface ProjectDetail {
   source: ContentSource
   name: string
   summary: string
-  /** Long description; markdown source, rendered as cleaned plain text. */
+  /** Long description; markdown source, rendered as sanitized HTML. */
   body: string
   iconUrl: string | null
   downloads: number

@@ -1,61 +1,142 @@
+import { createHash } from 'crypto'
+import { createReadStream } from 'fs'
 import { readdir, rename, rm } from 'fs/promises'
 import { join } from 'path'
-import { modrinthProvider } from '../discover/modrinth'
+import {
+  getModrinthVersion,
+  getProjectsByIds,
+  getVersionsByHashes,
+  modrinthProvider
+} from '../discover/modrinth'
+import type { VersionFilter } from '../discover/provider'
 import { downloadFile } from '../minecraft/install'
 import { getModpack, instanceDirFor } from './store'
-import type { InstalledMod, InstallModParams } from '@shared/types'
+import type {
+  InstallableCategory,
+  InstallContentParams,
+  InstalledContent,
+  Modpack
+} from '@shared/types'
 
 /**
- * Mod files inside <instance>/mods. Disabling renames the jar to
- * <name>.jar.disabled so the loader skips it; no registry is kept —
- * the folder is the source of truth.
+ * Content files inside the instance folder (mods, resourcepacks,
+ * shaderpacks, datapacks). Disabling renames the file to
+ * <name>.<ext>.disabled so the game skips it; no registry is kept —
+ * the folder is the source of truth. Names, versions and icons are
+ * resolved from Modrinth by file hash when online.
  */
 
 const DISABLED_SUFFIX = '.disabled'
 
-function modsDir(modpackId: string): string {
+/** Destination folder and accepted file extensions per content kind. */
+const CONTENT_TARGETS: Record<InstallableCategory, { dir: string; extensions: string[] }> = {
+  mods: { dir: 'mods', extensions: ['.jar'] },
+  resourcepacks: { dir: 'resourcepacks', extensions: ['.zip'] },
+  shaders: { dir: 'shaderpacks', extensions: ['.zip'] },
+  datapacks: { dir: 'datapacks', extensions: ['.zip'] }
+}
+
+function contentDir(modpackId: string, category: InstallableCategory): string {
   const pack = getModpack(modpackId)
   if (pack === null) throw new Error('Modpack not found')
-  return join(instanceDirFor(pack), 'mods')
+  return join(instanceDirFor(pack), CONTENT_TARGETS[category].dir)
 }
 
-/** Rejects names that could navigate outside the mods folder. */
-function assertSafeFileName(fileName: string): void {
+function matchesCategory(fileName: string, category: InstallableCategory): boolean {
+  return CONTENT_TARGETS[category].extensions.some(
+    (e) => fileName.endsWith(e) || fileName.endsWith(`${e}${DISABLED_SUFFIX}`)
+  )
+}
+
+/** Rejects names that could navigate outside the content folder. */
+function assertSafeFileName(fileName: string, category: InstallableCategory): void {
   if (fileName === '' || /[/\\]/.test(fileName) || fileName.includes('..')) {
-    throw new Error(`Invalid mod file name: ${fileName}`)
+    throw new Error(`Invalid file name: ${fileName}`)
   }
-  if (!fileName.endsWith('.jar') && !fileName.endsWith(`.jar${DISABLED_SUFFIX}`)) {
-    throw new Error(`Not a mod file: ${fileName}`)
+  if (!matchesCategory(fileName, category)) {
+    throw new Error(`Unexpected file type: ${fileName}`)
   }
 }
 
-function toInstalledMod(fileName: string): InstalledMod {
+function toInstalledContent(fileName: string): InstalledContent {
   const enabled = !fileName.endsWith(DISABLED_SUFFIX)
   const base = enabled ? fileName : fileName.slice(0, -DISABLED_SUFFIX.length)
-  return { fileName, name: base.replace(/\.jar$/, ''), enabled }
+  return {
+    fileName,
+    name: base.replace(/\.(jar|zip)$/, ''),
+    enabled,
+    versionNumber: null,
+    iconUrl: null
+  }
 }
 
-export async function listMods(modpackId: string): Promise<InstalledMod[]> {
+function sha1OfFile(path: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const hash = createHash('sha1')
+    createReadStream(path)
+      .on('data', (chunk) => hash.update(chunk))
+      .on('end', () => resolve(hash.digest('hex')))
+      .on('error', reject)
+  })
+}
+
+/**
+ * Fills name/version/icon from Modrinth by file hash. Best-effort:
+ * any failure (offline, rate limit) leaves the plain file names.
+ */
+async function enrichFromModrinth(
+  dir: string,
+  items: InstalledContent[]
+): Promise<InstalledContent[]> {
+  try {
+    const hashes = await Promise.all(items.map((i) => sha1OfFile(join(dir, i.fileName))))
+    const versionByHash = await getVersionsByHashes(hashes)
+    const projectIds = [...new Set([...versionByHash.values()].map((m) => m.projectId))]
+    const projects = await getProjectsByIds(projectIds)
+
+    return items.map((item, index) => {
+      const match = versionByHash.get(hashes[index])
+      if (match === undefined) return item
+      const project = projects.get(match.projectId)
+      return {
+        ...item,
+        name: project?.title ?? item.name,
+        versionNumber: match.versionNumber,
+        iconUrl: project?.iconUrl ?? null
+      }
+    })
+  } catch {
+    return items
+  }
+}
+
+export async function listContent(
+  modpackId: string,
+  category: InstallableCategory
+): Promise<InstalledContent[]> {
+  const dir = contentDir(modpackId, category)
   let entries: string[]
   try {
-    entries = await readdir(modsDir(modpackId))
+    entries = await readdir(dir)
   } catch {
-    return [] // No mods folder yet.
+    return [] // No folder yet.
   }
-  return entries
-    .filter((f) => f.endsWith('.jar') || f.endsWith(`.jar${DISABLED_SUFFIX}`))
-    .map(toInstalledMod)
+  const items = entries
+    .filter((f) => matchesCategory(f, category))
+    .map(toInstalledContent)
     .sort((a, b) => a.name.localeCompare(b.name))
+  return enrichFromModrinth(dir, items)
 }
 
-export async function setModEnabled(
+export async function setContentEnabled(
   modpackId: string,
+  category: InstallableCategory,
   fileName: string,
   enabled: boolean
-): Promise<InstalledMod> {
-  assertSafeFileName(fileName)
-  const dir = modsDir(modpackId)
-  const current = toInstalledMod(fileName)
+): Promise<InstalledContent> {
+  assertSafeFileName(fileName, category)
+  const dir = contentDir(modpackId, category)
+  const current = toInstalledContent(fileName)
   if (current.enabled === enabled) return current
 
   const newName = enabled
@@ -64,46 +145,77 @@ export async function setModEnabled(
   try {
     await rename(join(dir, fileName), join(dir, newName))
   } catch {
-    throw new Error('Could not toggle the mod — stop the game first')
+    throw new Error('Could not toggle the file — stop the game first')
   }
-  return toInstalledMod(newName)
+  return toInstalledContent(newName)
 }
 
-export async function removeModFile(modpackId: string, fileName: string): Promise<void> {
-  assertSafeFileName(fileName)
-  await rm(join(modsDir(modpackId), fileName), { force: true })
+export async function removeContentFile(
+  modpackId: string,
+  category: InstallableCategory,
+  fileName: string
+): Promise<void> {
+  assertSafeFileName(fileName, category)
+  await rm(join(contentDir(modpackId, category), fileName), { force: true })
 }
 
-export async function installModFromModrinth(params: InstallModParams): Promise<InstalledMod> {
+function versionFilterFor(category: InstallableCategory, pack: Modpack): VersionFilter {
+  const gameVersions = pack.gameVersion !== null ? [pack.gameVersion] : undefined
+  if (category === 'mods') {
+    // pack.loader is validated non-null/non-vanilla before this is called.
+    return { loaders: pack.loader !== null ? [pack.loader] : undefined, gameVersions }
+  }
+  // Resourcepacks/shaders/datapacks carry pseudo-loaders ("minecraft",
+  // "iris", "datapack"…) — filtering by the pack's mod loader finds nothing.
+  return { gameVersions }
+}
+
+export async function installContentFromModrinth(
+  params: InstallContentParams
+): Promise<InstalledContent> {
   if (params.source !== 'modrinth') {
     throw new Error('CurseForge installs arrive in a later phase')
   }
   const pack = getModpack(params.modpackId)
   if (pack === null) throw new Error('Modpack not found')
-  if (pack.loader === null || pack.loader === 'vanilla') {
+  if (params.category === 'mods' && (pack.loader === null || pack.loader === 'vanilla')) {
     throw new Error('This modpack has no mod loader — mods need Fabric, Forge or Quilt')
   }
-  if (pack.gameVersion === null) {
+  // Auto-picking needs a game version to filter by; an explicit version doesn't.
+  if (pack.gameVersion === null && params.versionId === undefined) {
     throw new Error('Assign a game version to the modpack first')
   }
 
-  const versions = await modrinthProvider.getProjectVersions(params.projectId, {
-    loaders: [pack.loader],
-    gameVersions: [pack.gameVersion]
-  })
+  const target = CONTENT_TARGETS[params.category]
+  let versions
+  if (params.versionId !== undefined) {
+    // User picked an exact version — trust the choice, skip compatibility filters.
+    const version = await getModrinthVersion(params.versionId)
+    if (version.projectId !== params.projectId) {
+      throw new Error('Version does not belong to this project')
+    }
+    versions = [version]
+  } else {
+    versions = await modrinthProvider.getProjectVersions(
+      params.projectId,
+      versionFilterFor(params.category, pack)
+    )
+  }
+  const matchesExt = (name: string): boolean => target.extensions.some((e) => name.endsWith(e))
   const file = versions
     .flatMap((v) => v.files)
-    .find((f) => f.primary && f.filename.endsWith('.jar'))
-    ?? versions.flatMap((v) => v.files).find((f) => f.filename.endsWith('.jar'))
+    .find((f) => f.primary && matchesExt(f.filename))
+    ?? versions.flatMap((v) => v.files).find((f) => matchesExt(f.filename))
   if (file === undefined) {
-    throw new Error(`No ${pack.loader} build for Minecraft ${pack.gameVersion}`)
+    const wanted = params.category === 'mods' ? `${pack.loader} build` : 'compatible file'
+    throw new Error(`No ${wanted} for Minecraft ${pack.gameVersion}`)
   }
 
-  assertSafeFileName(file.filename)
+  assertSafeFileName(file.filename, params.category)
   await downloadFile(
     file.url,
-    join(modsDir(params.modpackId), file.filename),
+    join(instanceDirFor(pack), target.dir, file.filename),
     file.sha1 ?? undefined
   )
-  return toInstalledMod(file.filename)
+  return toInstalledContent(file.filename)
 }

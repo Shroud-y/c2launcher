@@ -16,6 +16,7 @@ export enum IpcChannel {
   ModpackToggleMod = 'modpack:toggle-mod',
   ModpackRemoveMod = 'modpack:remove-mod',
   ModpackUpdateSettings = 'modpack:update-settings',
+  ModpackSetIcon = 'modpack:set-icon',
   ModpackStop = 'modpack:stop',
   ModpackOpenFolder = 'modpack:open-folder',
   ModpackDelete = 'modpack:delete',

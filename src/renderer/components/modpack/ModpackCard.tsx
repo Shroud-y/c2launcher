@@ -30,7 +30,11 @@ export default function ModpackCard({ modpack }: ModpackCardProps): JSX.Element 
   return (
     <button type="button" className={styles.card} onClick={() => openModpack(modpack.id)}>
       <span className={`${styles.icon} ${TINT_CLASS[modpack.iconTint]}`}>
-        <WindIcon size={28} />
+        {(modpack.icon ?? null) !== null ? (
+          <img className={styles.iconImage} src={modpack.icon ?? ''} alt="" />
+        ) : (
+          <WindIcon size={28} />
+        )}
       </span>
       <span className={styles.text}>
         <span className={styles.name}>{modpack.name}</span>
