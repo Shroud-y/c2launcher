@@ -8,7 +8,7 @@ import type { CreateModpackParams, IconTint, ModLoader, Modpack, ModpackSettings
 
 /**
  * Local modpack registry (metadata in electron-store) plus the on-disk
- * instance layout under the configurable data dir (see settings/store):
+ * instance layout under the app-data dir (see settings/store):
  *
  *   <dataDir>/instances/<dirName>/   per-modpack game dir (saves, mods…)
  *   <dataDir>/minecraft/versions/    shared version jsons + client jars
@@ -101,6 +101,7 @@ const LOADERS: ModLoader[] = ['fabric', 'forge', 'quilt', 'neoforge', 'vanilla']
 interface InstanceFileData {
   loader: ModLoader | null
   gameVersion: string | null
+  loaderVersion: string | null
   memoryMb: number
   javaArgs: string
 }
@@ -109,6 +110,7 @@ async function writeInstanceFile(pack: Modpack): Promise<void> {
   const data: InstanceFileData = {
     loader: pack.loader,
     gameVersion: pack.gameVersion,
+    loaderVersion: pack.loaderVersion ?? null,
     memoryMb: pack.memoryMb,
     javaArgs: pack.javaArgs
   }
@@ -133,6 +135,9 @@ async function readInstanceFile(dir: string): Promise<Partial<InstanceFileData>>
     if (typeof obj.gameVersion === 'string' && obj.gameVersion !== '') {
       result.gameVersion = obj.gameVersion
     }
+    if (typeof obj.loaderVersion === 'string' && obj.loaderVersion !== '') {
+      result.loaderVersion = obj.loaderVersion
+    }
     if (typeof obj.memoryMb === 'number' && Number.isFinite(obj.memoryMb)) {
       result.memoryMb = obj.memoryMb
     }
@@ -154,6 +159,7 @@ export async function createModpack(params: CreateModpackParams): Promise<Modpac
     dirName: uniqueDirName(name),
     loader: params.loader,
     gameVersion: params.gameVersion,
+    loaderVersion: params.loaderVersion ?? null,
     iconTint: TINT_CYCLE[existing.length % TINT_CYCLE.length],
     memoryMb: 4096,
     javaArgs: '',
@@ -275,6 +281,7 @@ export async function adoptUnknownInstances(): Promise<void> {
       dirName: entry.name,
       loader: fileData.loader ?? null,
       gameVersion: fileData.gameVersion ?? null,
+      loaderVersion: fileData.loaderVersion ?? null,
       iconTint: TINT_CYCLE[modpacks.length % TINT_CYCLE.length],
       memoryMb: Math.max(512, Math.min(65536, Math.round(fileData.memoryMb ?? 4096))),
       javaArgs: fileData.javaArgs ?? '',

@@ -1,0 +1,39 @@
+.installButton {
+  padding: 8px 16px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--text-on-accent);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.installButton:hover:enabled {
+  background: var(--accent-soft);
+}
+
+.installButton:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.installedButton {
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--accent);
+  background: transparent;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: default;
+}
+
+.targetSelect {
+  max-width: 160px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--accent);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 13px;
+  outline: none;
+}

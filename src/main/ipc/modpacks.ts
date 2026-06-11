@@ -5,6 +5,8 @@ import type {
   CreateModpackParams,
   GameLogLine,
   GameState,
+  InstalledMod,
+  InstallModParams,
   InstallProgress,
   Modpack,
   ModpackSettings
@@ -21,8 +23,11 @@ import {
   minecraftRoot,
   updateModpack
 } from '../modpacks/store'
+import { installModrinthPack } from '../modpacks/modrinthInstall'
+import { installModFromModrinth, listMods, removeModFile, setModEnabled } from '../modpacks/mods'
 import { listReleaseVersionIds } from '../minecraft/manifest'
 import { ensureVersionInstalled } from '../minecraft/install'
+import { applyLoader } from '../minecraft/loader'
 import { launchGame } from '../minecraft/launch'
 import { findJava } from '../minecraft/java'
 import { getMinecraftSession } from '../auth/microsoftAuth'
@@ -32,10 +37,6 @@ import type { ChildProcess } from 'child_process'
 
 const busy = new Set<string>() // installing or running
 const runningProcesses = new Map<string, ChildProcess>()
-
-export function isAnyModpackBusy(): boolean {
-  return busy.size > 0
-}
 
 function broadcast(channel: IpcChannel, payload: unknown): void {
   for (const win of BrowserWindow.getAllWindows()) {
@@ -66,16 +67,37 @@ async function runLaunch(modpack: Modpack, _sender: WebContents): Promise<void> 
     throw new Error('Java not found. Install Java 21+ or set JAVA_HOME.')
   }
 
+  if (modpack.loader === 'forge' || modpack.loader === 'neoforge') {
+    throw new Error(
+      `${modpack.loader === 'forge' ? 'Forge' : 'NeoForge'} launching is not supported yet — Fabric and Quilt packs work`
+    )
+  }
+
   const session = await getMinecraftSession(loadRefreshToken, saveRefreshToken)
 
   sendLog({ modpackId, stream: 'system', line: `Installing Minecraft ${modpack.gameVersion}…` })
-  const meta = await ensureVersionInstalled(
+  let meta = await ensureVersionInstalled(
     minecraftRoot(),
     modpack.gameVersion,
     (phase, percent, message) => {
       sendProgress({ modpackId, phase, percent: Math.round(percent), message })
     }
   )
+
+  if (modpack.loader === 'fabric' || modpack.loader === 'quilt') {
+    sendLog({ modpackId, stream: 'system', line: `Installing ${modpack.loader} loader…` })
+    meta = await applyLoader(
+      minecraftRoot(),
+      meta,
+      modpack.loader,
+      modpack.gameVersion,
+      modpack.loaderVersion ?? null,
+      (percent, message) => {
+        sendProgress({ modpackId, phase: 'loader', percent: Math.round(percent), message })
+      }
+    )
+    sendProgress({ modpackId, phase: 'done', percent: 100, message: 'Ready' })
+  }
 
   if (meta.javaVersion !== undefined) {
     sendLog({
@@ -173,6 +195,55 @@ export function registerModpackIpc(): void {
   })
 
   ipcMain.handle(IpcChannel.MinecraftVersions, (): Promise<string[]> => listReleaseVersionIds())
+
+  ipcMain.handle(
+    IpcChannel.ModpackInstallModrinth,
+    async (_e, projectId: string): Promise<Modpack> => {
+      let packId: string | null = null
+      try {
+        const pack = await installModrinthPack(projectId, (p, percent, message) => {
+          if (packId === null) {
+            packId = p.id
+            busy.add(p.id)
+          }
+          sendProgress({ modpackId: p.id, phase: 'pack', percent: Math.round(percent), message })
+        })
+        sendProgress({ modpackId: pack.id, phase: 'done', percent: 100, message: 'Installed' })
+        return pack
+      } catch (err) {
+        if (packId !== null) {
+          const message = err instanceof Error ? err.message : 'Install failed'
+          sendProgress({ modpackId: packId, phase: 'error', percent: 0, message })
+        }
+        throw err
+      } finally {
+        if (packId !== null) busy.delete(packId)
+      }
+    }
+  )
+
+  ipcMain.handle(
+    IpcChannel.ModpackInstallMod,
+    (_e, params: InstallModParams): Promise<InstalledMod> => installModFromModrinth(params)
+  )
+
+  ipcMain.handle(
+    IpcChannel.ModpackMods,
+    (_e, id: string): Promise<InstalledMod[]> => listMods(id)
+  )
+
+  ipcMain.handle(
+    IpcChannel.ModpackToggleMod,
+    (_e, id: string, fileName: string, enabled: boolean): Promise<InstalledMod> =>
+      setModEnabled(id, fileName, enabled)
+  )
+
+  ipcMain.handle(IpcChannel.ModpackRemoveMod, async (_e, id: string, fileName: string): Promise<void> => {
+    if (busy.has(id)) {
+      throw new Error('Stop the game before removing mods')
+    }
+    await removeModFile(id, fileName)
+  })
 
   ipcMain.handle(IpcChannel.ModpackStop, (_e, id: string): void => {
     const child = runningProcesses.get(id)

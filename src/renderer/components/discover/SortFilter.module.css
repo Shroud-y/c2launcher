@@ -5,6 +5,7 @@
 }
 
 .dropdown {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -14,6 +15,16 @@
   border: 1px solid var(--border);
   color: var(--text-muted);
   font-size: 13px;
+  cursor: pointer;
+}
+
+/* Invisible native select stretched over the pill — keeps the mockup
+   look while the OS renders the option list. */
+.select {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
 }
 
 .dropdown strong {

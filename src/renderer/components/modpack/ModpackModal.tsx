@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { CloseIcon, FolderIcon, WindIcon } from '../common/Icons'
-import { formatSubtitle, placeholderModpacks } from '../../data/placeholders'
+import { formatSubtitle } from '../../data/format'
 import { useModalStore } from '../../store/modalStore'
 import { useModpackStore } from '../../store/modpackStore'
+import type { InstalledMod } from '@shared/types'
 import styles from './ModpackModal.module.css'
 
 type ModalTab = 'mods' | 'settings' | 'logs'
@@ -26,8 +27,7 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
   } = useModpackStore()
 
   const localPack = modpacks.find((m) => m.id === modpackId) ?? null
-  // Discover cards still carry placeholder data until Phase 4.
-  const pack = localPack ?? placeholderModpacks.find((m) => m.id === modpackId) ?? null
+  const pack = localPack
 
   const [tab, setTab] = useState<ModalTab>('mods')
   const [name, setName] = useState(pack?.name ?? '')
@@ -39,6 +39,16 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
   const [settingsError, setSettingsError] = useState<string | null>(null)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [mods, setMods] = useState<InstalledMod[] | null>(null)
+  const [modsError, setModsError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (tab !== 'mods' || mods !== null) return
+    window.api.modpack
+      .mods(modpackId)
+      .then(setMods)
+      .catch(() => setModsError('Could not read the mods folder'))
+  }, [tab, mods, modpackId])
 
   useEffect(() => {
     if (tab !== 'settings' || versions.length > 0) return
@@ -92,6 +102,32 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
       setSettingsError(message.replace(/^Error invoking remote method '[^']+': (?:\w*Error: )?/, ''))
       setDeleting(false)
       setConfirmingDelete(false)
+    }
+  }
+
+  async function toggleMod(mod: InstalledMod): Promise<void> {
+    setModsError(null)
+    try {
+      const updated = await window.api.modpack.toggleMod(modpackId, mod.fileName, !mod.enabled)
+      setMods((current) =>
+        current === null ? null : current.map((m) => (m.fileName === mod.fileName ? updated : m))
+      )
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Could not toggle the mod'
+      setModsError(message.replace(/^Error invoking remote method '[^']+': (?:\w*Error: )?/, ''))
+    }
+  }
+
+  async function removeMod(mod: InstalledMod): Promise<void> {
+    setModsError(null)
+    try {
+      await window.api.modpack.removeMod(modpackId, mod.fileName)
+      setMods((current) =>
+        current === null ? null : current.filter((m) => m.fileName !== mod.fileName)
+      )
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Could not remove the mod'
+      setModsError(message.replace(/^Error invoking remote method '[^']+': (?:\w*Error: )?/, ''))
     }
   }
 
@@ -181,10 +217,49 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
         </nav>
 
         {tab === 'mods' && (
-          <div className={styles.placeholderNote}>
-            Mod management arrives with Modrinth integration (Phase 4). Drop jars into the
-            modpack&apos;s <code>mods</code> folder meanwhile.
-          </div>
+          <>
+            {modsError !== null && <div className={styles.error}>{modsError}</div>}
+            {mods === null ? (
+              <div className={styles.placeholderNote}>Reading mods…</div>
+            ) : mods.length === 0 ? (
+              <div className={styles.placeholderNote}>
+                No mods installed. Find some on the Discover page, or drop jars into the
+                modpack&apos;s <code>mods</code> folder.
+              </div>
+            ) : (
+              <ul className={styles.modList}>
+                {mods.map((mod) => (
+                  <li key={mod.fileName} className={styles.modRow}>
+                    <div className={styles.modInfo}>
+                      <span className={styles.modName}>{mod.name}</span>
+                      {!mod.enabled && <span className={styles.modVersion}>Disabled</span>}
+                    </div>
+                    <div className={styles.modActions}>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={mod.enabled}
+                        aria-label={`${mod.enabled ? 'Disable' : 'Enable'} ${mod.name}`}
+                        className={mod.enabled ? styles.toggleOn : styles.toggle}
+                        onClick={() => void toggleMod(mod)}
+                      >
+                        <span className={styles.toggleKnob} />
+                      </button>
+                      <button
+                        type="button"
+                        className={styles.modRemove}
+                        aria-label={`Remove ${mod.name}`}
+                        title="Remove mod"
+                        onClick={() => void removeMod(mod)}
+                      >
+                        <CloseIcon size={14} />
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
         )}
 
         {tab === 'settings' && (

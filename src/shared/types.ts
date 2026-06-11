@@ -12,6 +12,8 @@ export interface Modpack {
   dirName: string
   loader: ModLoader | null
   gameVersion: string | null
+  /** Pinned loader version (mrpack installs); null resolves latest at launch. */
+  loaderVersion?: string | null
   iconTint: IconTint
   memoryMb: number
   javaArgs: string
@@ -23,6 +25,8 @@ export interface CreateModpackParams {
   name: string
   loader: ModLoader
   gameVersion: string
+  /** Pinned loader version — set by mrpack installs, absent for manual packs. */
+  loaderVersion?: string | null
 }
 
 export interface ModpackSettings {
@@ -34,11 +38,19 @@ export interface ModpackSettings {
 }
 
 export interface AppSettings {
-  /** Root folder for heavy game data (instances + shared minecraft files). */
+  /** App-data folder holding all launcher state (config, instances, game files). */
   dataDir: string
 }
 
-export type InstallPhase = 'manifest' | 'client' | 'libraries' | 'assets' | 'done' | 'error'
+export type InstallPhase =
+  | 'manifest'
+  | 'client'
+  | 'libraries'
+  | 'assets'
+  | 'pack'
+  | 'loader'
+  | 'done'
+  | 'error'
 
 export interface InstallProgress {
   modpackId: string
@@ -64,17 +76,17 @@ export interface GameLogLine {
 }
 
 export interface InstalledMod {
-  id: string
+  /** Actual file name on disk, including a .disabled suffix when off. */
+  fileName: string
+  /** Display name — file name without .jar / .disabled suffixes. */
   name: string
-  version: string
   enabled: boolean
 }
 
-export interface ModpackDetail extends Modpack {
-  mods: InstalledMod[]
-  memoryMb: number
-  javaArgs: string
-  updateAvailable: boolean
+export interface InstallModParams {
+  modpackId: string
+  projectId: string
+  source: ContentSource
 }
 
 export interface MinecraftProfile {
@@ -107,7 +119,39 @@ export interface SearchResult {
   source: ContentSource
   name: string
   summary: string
+  author: string
+  downloads: number
   loader: ModLoader | null
   gameVersion: string | null
   iconUrl: string | null
+}
+
+export interface SearchResponse {
+  hits: SearchResult[]
+  totalHits: number
+}
+
+export interface ProjectDetail {
+  id: string
+  source: ContentSource
+  name: string
+  summary: string
+  /** Long description; markdown source, rendered as cleaned plain text. */
+  body: string
+  iconUrl: string | null
+  downloads: number
+  followers: number
+  categories: string[]
+  gameVersions: string[]
+  loaders: string[]
+}
+
+export interface ProjectVersionInfo {
+  id: string
+  name: string
+  versionNumber: string
+  gameVersions: string[]
+  loaders: string[]
+  downloads: number
+  datePublished: string
 }

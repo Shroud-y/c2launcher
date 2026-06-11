@@ -348,6 +348,27 @@
   color: var(--text-muted);
 }
 
+.modActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.modRemove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  color: var(--text-muted);
+}
+
+.modRemove:hover {
+  background: rgba(248, 81, 73, 0.15);
+  color: #f85149;
+}
+
 .toggle,
 .toggleOn {
   position: relative;

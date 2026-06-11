@@ -1,5 +1,5 @@
 import { WindIcon } from '../common/Icons'
-import { formatSubtitle } from '../../data/placeholders'
+import { formatSubtitle } from '../../data/format'
 import { useModalStore } from '../../store/modalStore'
 import { useModpackStore } from '../../store/modpackStore'
 import type { Modpack } from '@shared/types'

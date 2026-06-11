@@ -26,7 +26,7 @@ async function fileMatches(path: string, expectedSize?: number): Promise<boolean
   }
 }
 
-async function downloadFile(url: string, dest: string, expectedSha1?: string): Promise<void> {
+export async function downloadFile(url: string, dest: string, expectedSha1?: string): Promise<void> {
   const res = await fetch(url)
   if (!res.ok) throw new Error(`Download failed (${res.status}): ${url}`)
   const data = Buffer.from(await res.arrayBuffer())
@@ -38,14 +38,14 @@ async function downloadFile(url: string, dest: string, expectedSha1?: string): P
   await writeFile(dest, data)
 }
 
-interface DownloadTask {
+export interface DownloadTask {
   url: string
   dest: string
   size?: number
   sha1?: string
 }
 
-async function downloadAll(
+export async function downloadAll(
   tasks: DownloadTask[],
   onFile: (done: number, total: number) => void
 ): Promise<void> {
