@@ -10,7 +10,7 @@ import type { ArgumentEntry, Library, VersionMeta } from './versionMeta'
  * into the vanilla VersionMeta so install/launch stay loader-agnostic.
  *
  * Forge and NeoForge ship installer jars instead of profile jsons and
- * are out of scope until a later phase.
+ * are handled separately in `forge.ts`.
  */
 
 interface MetaServer {
@@ -21,10 +21,6 @@ interface MetaServer {
 const META_SERVERS: Partial<Record<ModLoader, MetaServer>> = {
   fabric: { base: 'https://meta.fabricmc.net/v2', defaultMaven: 'https://maven.fabricmc.net/' },
   quilt: { base: 'https://meta.quiltmc.org/v3', defaultMaven: 'https://maven.quiltmc.org/repository/release/' }
-}
-
-export function isLoaderSupported(loader: ModLoader): boolean {
-  return loader === 'vanilla' || loader === 'fabric' || loader === 'quilt'
 }
 
 async function fetchJson<T>(url: string): Promise<T> {

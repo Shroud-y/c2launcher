@@ -5,11 +5,12 @@ import { useModpackStore } from '../../store/modpackStore'
 import type { ModLoader } from '@shared/types'
 import styles from './CreateModpackModal.module.css'
 
-const LOADERS: { id: ModLoader; label: string; available: boolean }[] = [
-  { id: 'vanilla', label: 'Vanilla', available: true },
-  { id: 'fabric', label: 'Fabric', available: false },
-  { id: 'forge', label: 'Forge', available: false },
-  { id: 'quilt', label: 'Quilt', available: false }
+const LOADERS: { id: ModLoader; label: string }[] = [
+  { id: 'vanilla', label: 'Vanilla' },
+  { id: 'fabric', label: 'Fabric' },
+  { id: 'forge', label: 'Forge' },
+  { id: 'neoforge', label: 'NeoForge' },
+  { id: 'quilt', label: 'Quilt' }
 ]
 
 export default function CreateModpackModal(): JSX.Element {
@@ -87,8 +88,6 @@ export default function CreateModpackModal(): JSX.Element {
                 key={l.id}
                 type="button"
                 className={loader === l.id ? styles.loaderActive : styles.loader}
-                disabled={!l.available}
-                title={l.available ? l.label : `${l.label} support arrives in a later phase`}
                 onClick={() => setLoader(l.id)}
               >
                 {l.label}

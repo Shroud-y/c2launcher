@@ -28,6 +28,7 @@ import { installModFromModrinth, listMods, removeModFile, setModEnabled } from '
 import { listReleaseVersionIds } from '../minecraft/manifest'
 import { ensureVersionInstalled } from '../minecraft/install'
 import { applyLoader } from '../minecraft/loader'
+import { applyForgeLoader } from '../minecraft/forge'
 import { launchGame } from '../minecraft/launch'
 import { findJava } from '../minecraft/java'
 import { getMinecraftSession } from '../auth/microsoftAuth'
@@ -67,12 +68,6 @@ async function runLaunch(modpack: Modpack, _sender: WebContents): Promise<void> 
     throw new Error('Java not found. Install Java 21+ or set JAVA_HOME.')
   }
 
-  if (modpack.loader === 'forge' || modpack.loader === 'neoforge') {
-    throw new Error(
-      `${modpack.loader === 'forge' ? 'Forge' : 'NeoForge'} launching is not supported yet — Fabric and Quilt packs work`
-    )
-  }
-
   const session = await getMinecraftSession(loadRefreshToken, saveRefreshToken)
 
   sendLog({ modpackId, stream: 'system', line: `Installing Minecraft ${modpack.gameVersion}…` })
@@ -84,18 +79,31 @@ async function runLaunch(modpack: Modpack, _sender: WebContents): Promise<void> 
     }
   )
 
-  if (modpack.loader === 'fabric' || modpack.loader === 'quilt') {
-    sendLog({ modpackId, stream: 'system', line: `Installing ${modpack.loader} loader…` })
-    meta = await applyLoader(
-      minecraftRoot(),
-      meta,
-      modpack.loader,
-      modpack.gameVersion,
-      modpack.loaderVersion ?? null,
-      (percent, message) => {
-        sendProgress({ modpackId, phase: 'loader', percent: Math.round(percent), message })
-      }
-    )
+  const loader = modpack.loader
+  if (loader !== null && loader !== 'vanilla') {
+    sendLog({ modpackId, stream: 'system', line: `Installing ${loader} loader…` })
+    const reportLoader = (percent: number, message: string): void => {
+      sendProgress({ modpackId, phase: 'loader', percent: Math.round(percent), message })
+    }
+    meta =
+      loader === 'fabric' || loader === 'quilt'
+        ? await applyLoader(
+            minecraftRoot(),
+            meta,
+            loader,
+            modpack.gameVersion,
+            modpack.loaderVersion ?? null,
+            reportLoader
+          )
+        : await applyForgeLoader(
+            minecraftRoot(),
+            meta,
+            loader,
+            modpack.gameVersion,
+            modpack.loaderVersion ?? null,
+            javaPath,
+            reportLoader
+          )
     sendProgress({ modpackId, phase: 'done', percent: 100, message: 'Ready' })
   }
 

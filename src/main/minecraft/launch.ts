@@ -56,7 +56,10 @@ export function buildLaunchArgs(ctx: LaunchContext): string[] {
     natives_directory: join(ctx.minecraftRoot, 'natives', ctx.meta.id),
     launcher_name: 'c2-launcher',
     launcher_version: app.getVersion(),
-    classpath: buildClasspath(ctx)
+    classpath: buildClasspath(ctx),
+    // Used by Forge/NeoForge jvm args (module path, -DlibraryDirectory).
+    library_directory: join(ctx.minecraftRoot, 'libraries'),
+    classpath_separator: delimiter
   }
 
   function substitute(arg: string): string {
