@@ -39,7 +39,7 @@ import { ensureVersionInstalled } from '../minecraft/install'
 import { applyLoader } from '../minecraft/loader'
 import { applyForgeLoader } from '../minecraft/forge'
 import { launchGame } from '../minecraft/launch'
-import { findJava } from '../minecraft/java'
+import { ensureMojangRuntime, findJava } from '../minecraft/java'
 import { getMinecraftSession } from '../auth/microsoftAuth'
 import { loadRefreshToken, saveRefreshToken } from '../auth/tokenStore'
 
@@ -66,15 +66,48 @@ function sendLog(log: GameLogLine): void {
   broadcast(IpcChannel.ModpackGameLog, log)
 }
 
-async function runLaunch(modpack: Modpack, _sender: WebContents): Promise<void> {
-  const modpackId = modpack.id
-  if (modpack.gameVersion === null) {
-    throw new Error('This modpack has no game version assigned')
+/**
+ * The Java to launch with: Mojang's bundled runtime matching the version
+ * manifest when available (this is what guarantees e.g. Java 25 for
+ * Minecraft 26.x), otherwise whatever findJava() locates on the system.
+ */
+async function resolveJava(
+  modpackId: string,
+  required: { component?: string; majorVersion: number } | undefined
+): Promise<string> {
+  if (required?.component !== undefined) {
+    try {
+      const javaPath = await ensureMojangRuntime(minecraftRoot(), required.component, (percent, message) => {
+        sendProgress({ modpackId, phase: 'java', percent: Math.round(percent), message })
+      })
+      sendLog({
+        modpackId,
+        stream: 'system',
+        line: `Using bundled Java ${required.majorVersion} (${javaPath})`
+      })
+      return javaPath
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : 'download failed'
+      sendLog({
+        modpackId,
+        stream: 'system',
+        line: `Bundled Java unavailable (${reason}) — falling back to system Java`
+      })
+    }
   }
 
   const javaPath = await findJava()
   if (javaPath === null) {
-    throw new Error('Java not found. Install Java 21+ or set JAVA_HOME.')
+    const wanted = required !== undefined ? ` ${required.majorVersion}+` : ' 21+'
+    throw new Error(`Java not found. Install Java${wanted} or set JAVA_HOME.`)
+  }
+  return javaPath
+}
+
+async function runLaunch(modpack: Modpack, _sender: WebContents): Promise<void> {
+  const modpackId = modpack.id
+  if (modpack.gameVersion === null) {
+    throw new Error('This modpack has no game version assigned')
   }
 
   const session = await getMinecraftSession(loadRefreshToken, saveRefreshToken)
@@ -87,6 +120,8 @@ async function runLaunch(modpack: Modpack, _sender: WebContents): Promise<void> 
       sendProgress({ modpackId, phase, percent: Math.round(percent), message })
     }
   )
+
+  const javaPath = await resolveJava(modpackId, meta.javaVersion)
 
   const loader = modpack.loader
   if (loader !== null && loader !== 'vanilla') {
@@ -114,14 +149,6 @@ async function runLaunch(modpack: Modpack, _sender: WebContents): Promise<void> 
             reportLoader
           )
     sendProgress({ modpackId, phase: 'done', percent: 100, message: 'Ready' })
-  }
-
-  if (meta.javaVersion !== undefined) {
-    sendLog({
-      modpackId,
-      stream: 'system',
-      line: `Required Java major version: ${meta.javaVersion.majorVersion} (using ${javaPath})`
-    })
   }
 
   sendState({ modpackId, state: 'launching' })

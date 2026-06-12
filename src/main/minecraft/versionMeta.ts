@@ -42,8 +42,26 @@ export interface VersionMeta {
   arguments?: { game: ArgumentEntry[]; jvm: ArgumentEntry[] }
   /** Pre-1.13 versions use a flat string instead of `arguments`. */
   minecraftArguments?: string
-  javaVersion?: { majorVersion: number }
+  /** `component` names Mojang's bundled runtime (e.g. "java-runtime-epsilon"). */
+  javaVersion?: { component?: string; majorVersion: number }
   type: string
+}
+
+/** "group:artifact:version[:classifier]" → version-independent identity. */
+function libraryKey(name: string): string {
+  const parts = name.split(':')
+  return parts.length >= 4 ? `${parts[0]}:${parts[1]}:${parts[3]}` : `${parts[0]}:${parts[1]}`
+}
+
+/**
+ * Loader profile libraries + vanilla libraries with duplicates removed:
+ * when both ship the same artifact (e.g. org.ow2.asm:asm), the loader's
+ * version wins. Two versions of one jar on the classpath is a hard
+ * error for Fabric's Knot launcher.
+ */
+export function mergeLibraries(loaderLibs: Library[], vanillaLibs: Library[]): Library[] {
+  const fromLoader = new Set(loaderLibs.map((l) => libraryKey(l.name)))
+  return [...loaderLibs, ...vanillaLibs.filter((l) => !fromLoader.has(libraryKey(l.name)))]
 }
 
 /**

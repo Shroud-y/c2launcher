@@ -2,7 +2,7 @@ import { spawn } from 'child_process'
 import { readFile, rm, stat, writeFile } from 'fs/promises'
 import { join } from 'path'
 import { downloadAll, downloadFile, versionJsonPath, type DownloadTask } from './install'
-import type { ArgumentEntry, Library, VersionMeta } from './versionMeta'
+import { mergeLibraries, type ArgumentEntry, type Library, type VersionMeta } from './versionMeta'
 
 /**
  * Forge and NeoForge support. Neither publishes a launcher profile API:
@@ -254,7 +254,7 @@ export async function applyForgeLoader(
   return {
     ...vanillaMeta,
     mainClass: profile.mainClass,
-    libraries: [...mergedLibraries, ...vanillaMeta.libraries],
+    libraries: mergeLibraries(mergedLibraries, vanillaMeta.libraries),
     arguments:
       vanillaArgs === undefined
         ? undefined

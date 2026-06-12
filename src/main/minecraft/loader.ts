@@ -1,7 +1,7 @@
 import { join } from 'path'
 import type { ModLoader } from '@shared/types'
 import { downloadAll, type DownloadTask } from './install'
-import type { ArgumentEntry, Library, VersionMeta } from './versionMeta'
+import { mergeLibraries, type ArgumentEntry, type Library, type VersionMeta } from './versionMeta'
 
 /**
  * Fabric and Quilt loader support via their meta servers. Both publish
@@ -121,7 +121,7 @@ export async function applyLoader(
   return {
     ...vanillaMeta,
     mainClass: profile.mainClass,
-    libraries: [...mergedLibraries, ...vanillaMeta.libraries],
+    libraries: mergeLibraries(mergedLibraries, vanillaMeta.libraries),
     arguments:
       vanillaArgs === undefined
         ? undefined

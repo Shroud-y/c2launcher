@@ -49,6 +49,7 @@ export type InstallPhase =
   | 'client'
   | 'libraries'
   | 'assets'
+  | 'java'
   | 'pack'
   | 'loader'
   | 'done'
