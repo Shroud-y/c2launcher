@@ -49,11 +49,6 @@
   flex-shrink: 0;
 }
 
-.trend {
-  color: var(--trend-green);
-  margin-left: auto;
-}
-
 .dropdownSection {
   display: flex;
   flex-direction: column;

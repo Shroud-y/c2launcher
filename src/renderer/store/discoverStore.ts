@@ -35,6 +35,11 @@ interface DiscoverState {
    * straight into this modpack — no instance picker popup.
    */
   installTarget: string | null
+  /**
+   * + flow only: restrict search results to content the target instance
+   * can run (its game version, and loader for mods). On by default.
+   */
+  onlyAvailable: boolean
 
   /** projectId → install in flight. */
   installing: Record<string, boolean>
@@ -58,6 +63,7 @@ interface DiscoverState {
   setLoader: (loader: ModLoader | null) => void
   toggleTag: (tag: string) => void
   setInstallTarget: (modpackId: string | null) => void
+  setOnlyAvailable: (onlyAvailable: boolean) => void
 
   search: () => Promise<void>
   /** Reloads `installedInTarget` from the locked instance's content folder. */
@@ -87,13 +93,16 @@ export const useDiscoverStore = create<DiscoverState>((set, get) => ({
   error: null,
 
   installTarget: null,
+  onlyAvailable: true,
 
   installing: {},
   installed: {},
   installErrors: {},
   installedInTarget: {},
 
-  setInstallTarget: (installTarget): void => set({ installTarget, installedInTarget: {} }),
+  setInstallTarget: (installTarget): void =>
+    set({ installTarget, installedInTarget: {}, onlyAvailable: true }),
+  setOnlyAvailable: (onlyAvailable): void => set({ onlyAvailable, page: 1 }),
 
   setCategory: (category): void => set({ category, page: 1, tags: [] }),
   setText: (text): void => set({ text, page: 1 }),
@@ -109,14 +118,15 @@ export const useDiscoverStore = create<DiscoverState>((set, get) => ({
 
   search: async (): Promise<void> => {
     const generation = ++searchGeneration
-    const { category, text, sort, page, pageSize, tags, installTarget } = get()
+    const { category, text, sort, page, pageSize, tags, installTarget, onlyAvailable } = get()
 
     let gameVersion = get().gameVersion ?? undefined
     let loader = get().loader ?? undefined
-    // Locked to an instance: only show content that fits it. The loader
-    // facet only makes sense for mods — other content types carry
-    // pseudo-loaders ("minecraft", "iris", "datapack").
-    if (installTarget !== null && category !== 'modpacks') {
+    // Locked to an instance: only show content that fits it (unless the
+    // user unticks "Show only available"). The loader facet only makes
+    // sense for mods — other content types carry pseudo-loaders
+    // ("minecraft", "iris", "datapack").
+    if (installTarget !== null && onlyAvailable && category !== 'modpacks') {
       const pack = useModpackStore.getState().modpacks.find((m) => m.id === installTarget)
       if (pack !== undefined) {
         if (pack.gameVersion !== null) gameVersion = pack.gameVersion

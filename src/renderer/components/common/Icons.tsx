@@ -1,9 +1,9 @@
-interface IconProps {
+export interface IconProps {
   size?: number
   className?: string
 }
 
-function svgProps(size: number, className?: string): React.SVGProps<SVGSVGElement> {
+export function svgProps(size: number, className?: string): React.SVGProps<SVGSVGElement> {
   return {
     width: size,
     height: size,

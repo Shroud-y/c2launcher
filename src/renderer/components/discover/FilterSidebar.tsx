@@ -1,19 +1,76 @@
 import { useEffect, useState } from 'react'
-import { CompassIcon, GridIcon, TrendUpIcon } from '../common/Icons'
+import CategoryIcon from './CategoryIcons'
 import { useDiscoverStore } from '../../store/discoverStore'
-import type { ModLoader } from '@shared/types'
+import type { ContentCategory, ModLoader } from '@shared/types'
 import styles from './FilterSidebar.module.css'
 
-/** Mockup category list mapped to Modrinth category slugs. */
-const CATEGORIES: { name: string; slug: string; trending: boolean }[] = [
-  { name: 'Adventure', slug: 'adventure', trending: false },
-  { name: 'Challenging', slug: 'challenging', trending: true },
-  { name: 'Combat', slug: 'combat', trending: false },
-  { name: 'Kitchen Sink', slug: 'kitchen-sink', trending: false },
-  { name: 'Lightweight', slug: 'lightweight', trending: false },
-  { name: 'Magic', slug: 'magic', trending: true },
-  { name: 'Multiplayer', slug: 'multiplayer', trending: true }
+interface CategoryTag {
+  name: string
+  slug: string
+}
+
+/**
+ * Real Modrinth category slugs per project type (GET /tag/category).
+ * Datapacks are mods on Modrinth, so they share the mod categories.
+ */
+const MOD_CATEGORIES: CategoryTag[] = [
+  { name: 'Adventure', slug: 'adventure' },
+  { name: 'Cursed', slug: 'cursed' },
+  { name: 'Decoration', slug: 'decoration' },
+  { name: 'Economy', slug: 'economy' },
+  { name: 'Equipment', slug: 'equipment' },
+  { name: 'Food', slug: 'food' },
+  { name: 'Game Mechanics', slug: 'game-mechanics' },
+  { name: 'Library', slug: 'library' },
+  { name: 'Magic', slug: 'magic' },
+  { name: 'Management', slug: 'management' },
+  { name: 'Minigame', slug: 'minigame' },
+  { name: 'Mobs', slug: 'mobs' },
+  { name: 'Optimization', slug: 'optimization' },
+  { name: 'Social', slug: 'social' },
+  { name: 'Storage', slug: 'storage' },
+  { name: 'Technology', slug: 'technology' },
+  { name: 'Transportation', slug: 'transportation' },
+  { name: 'Utility', slug: 'utility' },
+  { name: 'World Generation', slug: 'worldgen' }
 ]
+
+const CATEGORIES: Record<ContentCategory, CategoryTag[]> = {
+  modpacks: [
+    { name: 'Adventure', slug: 'adventure' },
+    { name: 'Challenging', slug: 'challenging' },
+    { name: 'Combat', slug: 'combat' },
+    { name: 'Kitchen Sink', slug: 'kitchen-sink' },
+    { name: 'Lightweight', slug: 'lightweight' },
+    { name: 'Magic', slug: 'magic' },
+    { name: 'Multiplayer', slug: 'multiplayer' },
+    { name: 'Optimization', slug: 'optimization' },
+    { name: 'Quests', slug: 'quests' },
+    { name: 'Technology', slug: 'technology' }
+  ],
+  mods: MOD_CATEGORIES,
+  datapacks: MOD_CATEGORIES,
+  resourcepacks: [
+    { name: 'Combat', slug: 'combat' },
+    { name: 'Cursed', slug: 'cursed' },
+    { name: 'Decoration', slug: 'decoration' },
+    { name: 'Modded', slug: 'modded' },
+    { name: 'Realistic', slug: 'realistic' },
+    { name: 'Simplistic', slug: 'simplistic' },
+    { name: 'Themed', slug: 'themed' },
+    { name: 'Tweaks', slug: 'tweaks' },
+    { name: 'Utility', slug: 'utility' },
+    { name: 'Vanilla-like', slug: 'vanilla-like' }
+  ],
+  shaders: [
+    { name: 'Cartoon', slug: 'cartoon' },
+    { name: 'Cursed', slug: 'cursed' },
+    { name: 'Fantasy', slug: 'fantasy' },
+    { name: 'Realistic', slug: 'realistic' },
+    { name: 'Semi-realistic', slug: 'semi-realistic' },
+    { name: 'Vanilla-like', slug: 'vanilla-like' }
+  ]
+}
 
 const LOADERS: { label: string; value: ModLoader }[] = [
   { label: 'Fabric', value: 'fabric' },
@@ -23,6 +80,7 @@ const LOADERS: { label: string; value: ModLoader }[] = [
 ]
 
 export default function FilterSidebar(): JSX.Element {
+  const category = useDiscoverStore((s) => s.category)
   const tags = useDiscoverStore((s) => s.tags)
   const gameVersion = useDiscoverStore((s) => s.gameVersion)
   const loader = useDiscoverStore((s) => s.loader)
@@ -46,7 +104,7 @@ export default function FilterSidebar(): JSX.Element {
       <section>
         <h3 className={styles.heading}>Category</h3>
         <ul className={styles.categoryList}>
-          {CATEGORIES.map((cat) => {
+          {CATEGORIES[category].map((cat) => {
             const active = tags.includes(cat.slug)
             return (
               <li key={cat.slug}>
@@ -55,13 +113,8 @@ export default function FilterSidebar(): JSX.Element {
                   className={active ? styles.categoryItemActive : styles.categoryItem}
                   onClick={() => toggleTag(cat.slug)}
                 >
-                  {cat.slug === 'adventure' ? (
-                    <CompassIcon size={14} className={styles.categoryIcon} />
-                  ) : (
-                    <GridIcon size={14} className={styles.categoryIcon} />
-                  )}
+                  <CategoryIcon slug={cat.slug} size={14} className={styles.categoryIcon} />
                   <span>{cat.name}</span>
-                  {cat.trending && <TrendUpIcon className={styles.trend} />}
                 </button>
               </li>
             )

@@ -533,53 +533,51 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
                 disabled={localPack === null}
               />
             </label>
-            <button
-              type="button"
-              className={styles.saveButton}
-              disabled={localPack === null}
-              onClick={() => void saveSettings()}
-            >
-              {settingsSaved ? 'Saved ✓' : 'Save'}
-            </button>
+            <div className={styles.actionsRow}>
+              <button
+                type="button"
+                className={styles.saveButton}
+                disabled={localPack === null}
+                onClick={() => void saveSettings()}
+              >
+                {settingsSaved ? 'Saved ✓' : 'Save'}
+              </button>
+              {localPack !== null && !confirmingDelete && (
+                <button
+                  type="button"
+                  className={styles.deleteButton}
+                  onClick={() => setConfirmingDelete(true)}
+                >
+                  Delete instance…
+                </button>
+              )}
+            </div>
             {settingsError !== null && <span className={styles.errorText}>{settingsError}</span>}
 
-            {localPack !== null && (
-              <div className={styles.dangerZone}>
-                <span className={styles.dangerLabel}>Danger zone</span>
-                {confirmingDelete ? (
-                  <div className={styles.dangerConfirm}>
-                    <span className={styles.dangerWarning}>
-                      Permanently deletes &quot;{localPack.name}&quot; with all its worlds, mods and
-                      settings. This cannot be undone.
-                    </span>
-                    <div className={styles.dangerButtons}>
-                      <button
-                        type="button"
-                        className={styles.cancelButton}
-                        disabled={deleting}
-                        onClick={() => setConfirmingDelete(false)}
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="button"
-                        className={styles.deleteButton}
-                        disabled={deleting}
-                        onClick={() => void confirmDelete()}
-                      >
-                        {deleting ? 'Deleting…' : 'Delete forever'}
-                      </button>
-                    </div>
-                  </div>
-                ) : (
+            {localPack !== null && confirmingDelete && (
+              <div className={styles.dangerConfirm}>
+                <span className={styles.dangerWarning}>
+                  Permanently deletes &quot;{localPack.name}&quot; with all its worlds, mods and
+                  settings. This cannot be undone.
+                </span>
+                <div className={styles.dangerButtons}>
+                  <button
+                    type="button"
+                    className={styles.cancelButton}
+                    disabled={deleting}
+                    onClick={() => setConfirmingDelete(false)}
+                  >
+                    Cancel
+                  </button>
                   <button
                     type="button"
                     className={styles.deleteButton}
-                    onClick={() => setConfirmingDelete(true)}
+                    disabled={deleting}
+                    onClick={() => void confirmDelete()}
                   >
-                    Delete instance…
+                    {deleting ? 'Deleting…' : 'Delete forever'}
                   </button>
-                )}
+                </div>
               </div>
             )}
           </div>

@@ -35,6 +35,8 @@ export default function Discover(): JSX.Element {
   const search = useDiscoverStore((s) => s.search)
   const installTarget = useDiscoverStore((s) => s.installTarget)
   const setInstallTarget = useDiscoverStore((s) => s.setInstallTarget)
+  const onlyAvailable = useDiscoverStore((s) => s.onlyAvailable)
+  const setOnlyAvailable = useDiscoverStore((s) => s.setOnlyAvailable)
   const refreshInstalledInTarget = useDiscoverStore((s) => s.refreshInstalledInTarget)
 
   const modpacksLoaded = useModpackStore((s) => s.loaded)
@@ -62,7 +64,19 @@ export default function Discover(): JSX.Element {
     prevText.current = text
     const timer = setTimeout(() => void search(), delay)
     return () => clearTimeout(timer)
-  }, [category, text, sort, page, pageSize, gameVersion, loader, tags, installTarget, search])
+  }, [
+    category,
+    text,
+    sort,
+    page,
+    pageSize,
+    gameVersion,
+    loader,
+    tags,
+    installTarget,
+    onlyAvailable,
+    search
+  ])
 
   return (
     <div className={styles.page}>
@@ -71,6 +85,16 @@ export default function Discover(): JSX.Element {
           <span>
             Installing into <strong>{targetPack.name}</strong>
           </span>
+          {category !== 'modpacks' && (
+            <label className={styles.targetCheckbox}>
+              <input
+                type="checkbox"
+                checked={onlyAvailable}
+                onChange={(e) => setOnlyAvailable(e.target.checked)}
+              />
+              Show only available
+            </label>
+          )}
           <button
             type="button"
             className={styles.targetClear}
