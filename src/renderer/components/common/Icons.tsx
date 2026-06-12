@@ -109,6 +109,16 @@ export function TrendUpIcon({ size = 14, className }: IconProps): JSX.Element {
   )
 }
 
+export function DownloadIcon({ size = 18, className }: IconProps): JSX.Element {
+  return (
+    <svg {...svgProps(size, className)}>
+      <path d="M12 3v12" />
+      <path d="m7 11 5 4 5-4" />
+      <path d="M4 19h16" />
+    </svg>
+  )
+}
+
 export function FolderIcon({ size = 18, className }: IconProps): JSX.Element {
   return (
     <svg {...svgProps(size, className)}>

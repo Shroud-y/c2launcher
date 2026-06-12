@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
 import { IpcChannel } from '@shared/ipc-channels'
 import type {
   AppSettings,
+  ContentUpdate,
   CreateModpackParams,
   GameLogLine,
   GameState,
@@ -54,6 +55,8 @@ const api = {
       ipcRenderer.invoke(IpcChannel.ModpackInstallMod, params),
     content: (id: string, category: InstallableCategory): Promise<InstalledContent[]> =>
       ipcRenderer.invoke(IpcChannel.ModpackMods, id, category),
+    contentUpdates: (id: string, category: InstallableCategory): Promise<ContentUpdate[]> =>
+      ipcRenderer.invoke(IpcChannel.ModpackContentUpdates, id, category),
     toggleContent: (
       id: string,
       category: InstallableCategory,

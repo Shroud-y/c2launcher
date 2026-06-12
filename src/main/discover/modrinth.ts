@@ -238,6 +238,35 @@ export async function getVersionsByHashes(hashes: string[]): Promise<Map<string,
   return result
 }
 
+/**
+ * Batch hash → latest compatible version lookup (Modrinth's update
+ * endpoint). Hashes Modrinth doesn't recognize are absent from the
+ * result. Not cached: this is the freshness check itself.
+ */
+export async function getLatestVersionsByHashes(
+  hashes: string[],
+  filter?: VersionFilter
+): Promise<Map<string, ProviderVersion>> {
+  if (hashes.length === 0) return new Map()
+  const raw = await fetchJson<Record<string, ModrinthVersion>>(
+    `${BASE_URL}/version_files/update`,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        hashes,
+        algorithm: 'sha1',
+        loaders: filter?.loaders ?? [],
+        game_versions: filter?.gameVersions ?? []
+      })
+    }
+  )
+  const result = new Map<string, ProviderVersion>()
+  for (const [hash, version] of Object.entries(raw)) {
+    result.set(hash, toProviderVersion(version))
+  }
+  return result
+}
+
 /** Batch project lookup for titles and icons. */
 export async function getProjectsByIds(ids: string[]): Promise<Map<string, ProjectSummary>> {
   const result = new Map<string, ProjectSummary>()

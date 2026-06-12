@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { CloseIcon, FolderIcon, PlusIcon, WindIcon } from '../common/Icons'
+import { CloseIcon, DownloadIcon, FolderIcon, PlusIcon, WindIcon } from '../common/Icons'
 import { formatSubtitle } from '../../data/format'
 import { useDiscoverStore } from '../../store/discoverStore'
 import { useModalStore } from '../../store/modalStore'
 import { useModpackStore } from '../../store/modpackStore'
-import type { InstallableCategory, InstalledContent } from '@shared/types'
+import type { ContentUpdate, InstallableCategory, InstalledContent } from '@shared/types'
 import styles from './ModpackModal.module.css'
 
 const CONTENT_TABS: InstallableCategory[] = ['mods', 'resourcepacks', 'shaders', 'datapacks']
@@ -71,6 +71,11 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
     Partial<Record<InstallableCategory, InstalledContent[]>>
   >({})
   const [modsError, setModsError] = useState<string | null>(null)
+  /** Per tab: fileName → available update. Absent tab = not checked yet. */
+  const [updates, setUpdates] = useState<
+    Partial<Record<InstallableCategory, Record<string, ContentUpdate>>>
+  >({})
+  const [updatingFile, setUpdatingFile] = useState<string | null>(null)
 
   useEffect(() => {
     if (!isContentTab(tab) || content[tab] !== undefined) return
@@ -80,6 +85,23 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
       .then((items) => setContent((c) => ({ ...c, [category]: items })))
       .catch(() => setModsError(`Could not read the ${EMPTY_NOTES[category].folder} folder`))
   }, [tab, content, modpackId])
+
+  // Once a content tab is listed, ask Modrinth (by file hash) whether
+  // newer compatible versions exist. Best-effort: offline shows no badges.
+  useEffect(() => {
+    if (!isContentTab(tab) || content[tab] === undefined || updates[tab] !== undefined) return
+    const category = tab
+    window.api.modpack
+      .contentUpdates(modpackId, category)
+      .then((list) => {
+        const map: Record<string, ContentUpdate> = {}
+        for (const update of list) map[update.fileName] = update
+        setUpdates((all) => ({ ...all, [category]: map }))
+      })
+      .catch(() => {
+        setUpdates((all) => ({ ...all, [category]: {} }))
+      })
+  }, [tab, content, updates, modpackId])
 
   useEffect(() => {
     if (tab !== 'settings' || versions.length > 0) return
@@ -175,9 +197,63 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
             : m
         )
       }))
+      // Updates are keyed by file name, which the toggle just changed.
+      setUpdates((all) => {
+        const forTab = all[category]
+        const update = forTab?.[item.fileName]
+        if (forTab === undefined || update === undefined) return all
+        const { [item.fileName]: _old, ...rest } = forTab
+        return {
+          ...all,
+          [category]: { ...rest, [updated.fileName]: { ...update, fileName: updated.fileName } }
+        }
+      })
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Could not toggle the file'
       setModsError(message.replace(/^Error invoking remote method '[^']+': (?:\w*Error: )?/, ''))
+    }
+  }
+
+  async function applyUpdate(
+    category: InstallableCategory,
+    item: InstalledContent
+  ): Promise<void> {
+    const update = updates[category]?.[item.fileName]
+    if (update === undefined) return
+    setModsError(null)
+    setUpdatingFile(item.fileName)
+    try {
+      // Same switch path as Discover: new file lands, old one is removed.
+      const installed = await window.api.modpack.installContent({
+        modpackId,
+        projectId: update.projectId,
+        source: 'modrinth',
+        category,
+        versionId: update.versionId,
+        replaceFileName: item.fileName
+      })
+      setContent((c) => ({
+        ...c,
+        [category]: (c[category] ?? []).map((m) =>
+          m.fileName === item.fileName
+            ? {
+                ...m,
+                fileName: installed.fileName,
+                enabled: installed.enabled,
+                versionNumber: update.versionNumber
+              }
+            : m
+        )
+      }))
+      setUpdates((all) => {
+        const { [item.fileName]: _done, ...rest } = all[category] ?? {}
+        return { ...all, [category]: rest }
+      })
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Update failed'
+      setModsError(message.replace(/^Error invoking remote method '[^']+': (?:\w*Error: )?/, ''))
+    } finally {
+      setUpdatingFile(null)
     }
   }
 
@@ -316,7 +392,9 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
               </div>
             ) : (
               <ul className={styles.modList}>
-                {(content[tab] ?? []).map((item) => (
+                {(content[tab] ?? []).map((item) => {
+                  const update = updates[tab]?.[item.fileName]
+                  return (
                   <li key={item.fileName} className={styles.modRow}>
                     {item.iconUrl !== null ? (
                       <img className={styles.modIcon} src={item.iconUrl} alt="" />
@@ -336,6 +414,20 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
                       )}
                     </div>
                     <div className={styles.modActions}>
+                      {update !== undefined && (
+                        <button
+                          type="button"
+                          className={
+                            updatingFile === item.fileName ? styles.modUpdateBusy : styles.modUpdate
+                          }
+                          disabled={updatingFile !== null}
+                          title={`Update to ${update.versionNumber}`}
+                          aria-label={`Update ${item.name} to ${update.versionNumber}`}
+                          onClick={() => void applyUpdate(tab, item)}
+                        >
+                          <DownloadIcon size={15} />
+                        </button>
+                      )}
                       <button
                         type="button"
                         role="switch"
@@ -357,7 +449,8 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
                       </button>
                     </div>
                   </li>
-                ))}
+                  )
+                })}
               </ul>
             )}
           </>

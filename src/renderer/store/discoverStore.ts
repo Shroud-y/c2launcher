@@ -1,6 +1,12 @@
 import { create } from 'zustand'
 import { useModpackStore } from './modpackStore'
-import type { ContentCategory, ModLoader, SearchQuery, SearchResult } from '@shared/types'
+import type {
+  ContentCategory,
+  InstalledContent,
+  ModLoader,
+  SearchQuery,
+  SearchResult
+} from '@shared/types'
 
 function stripIpcPrefix(message: string): string {
   return message.replace(/^Error invoking remote method '[^']+': (?:\w*Error: )?/, '')
@@ -36,6 +42,12 @@ interface DiscoverState {
   installed: Record<string, boolean>
   /** projectId → last install error. */
   installErrors: Record<string, string>
+  /**
+   * projectId → content already present in the locked install target
+   * (current category only). Empty outside the + button flow or when
+   * Modrinth hash resolution is unavailable (offline).
+   */
+  installedInTarget: Record<string, InstalledContent>
 
   setCategory: (category: ContentCategory) => void
   setText: (text: string) => void
@@ -48,8 +60,15 @@ interface DiscoverState {
   setInstallTarget: (modpackId: string | null) => void
 
   search: () => Promise<void>
+  /** Reloads `installedInTarget` from the locked instance's content folder. */
+  refreshInstalledInTarget: () => Promise<void>
   installPack: (projectId: string, versionId?: string) => Promise<void>
-  installContent: (projectId: string, modpackId: string, versionId?: string) => Promise<void>
+  installContent: (
+    projectId: string,
+    modpackId: string,
+    versionId?: string,
+    replaceFileName?: string
+  ) => Promise<void>
 }
 
 export const useDiscoverStore = create<DiscoverState>((set, get) => ({
@@ -72,8 +91,9 @@ export const useDiscoverStore = create<DiscoverState>((set, get) => ({
   installing: {},
   installed: {},
   installErrors: {},
+  installedInTarget: {},
 
-  setInstallTarget: (installTarget): void => set({ installTarget }),
+  setInstallTarget: (installTarget): void => set({ installTarget, installedInTarget: {} }),
 
   setCategory: (category): void => set({ category, page: 1, tags: [] }),
   setText: (text): void => set({ text, page: 1 }),
@@ -128,6 +148,29 @@ export const useDiscoverStore = create<DiscoverState>((set, get) => ({
     }
   },
 
+  refreshInstalledInTarget: async (): Promise<void> => {
+    const { installTarget, category } = get()
+    if (installTarget === null || category === 'modpacks') {
+      set({ installedInTarget: {} })
+      return
+    }
+    try {
+      const items = await window.api.modpack.content(installTarget, category)
+      const map: Record<string, InstalledContent> = {}
+      for (const item of items) {
+        if (item.projectId !== null) map[item.projectId] = item
+      }
+      // Target or tab may have changed while listing — drop stale results.
+      if (get().installTarget !== installTarget || get().category !== category) return
+      // Files exist but none resolved to a project — hash lookup is down
+      // (offline). Keep what we know instead of blanking the map.
+      if (items.length > 0 && Object.keys(map).length === 0) return
+      set({ installedInTarget: map })
+    } catch {
+      // Listing failed — keep the current map rather than flickering.
+    }
+  },
+
   installPack: async (projectId, versionId): Promise<void> => {
     set({
       installing: { ...get().installing, [projectId]: true },
@@ -146,7 +189,7 @@ export const useDiscoverStore = create<DiscoverState>((set, get) => ({
     }
   },
 
-  installContent: async (projectId, modpackId, versionId): Promise<void> => {
+  installContent: async (projectId, modpackId, versionId, replaceFileName): Promise<void> => {
     const category = get().category
     if (category === 'modpacks') return
     set({
@@ -155,13 +198,26 @@ export const useDiscoverStore = create<DiscoverState>((set, get) => ({
     })
     try {
       // No `installed` flag here — the same mod can go into several instances.
-      await window.api.modpack.installContent({
+      const item = await window.api.modpack.installContent({
         modpackId,
         projectId,
         source: 'modrinth',
         category,
-        versionId
+        versionId,
+        replaceFileName
       })
+      // Optimistic: flip the + flow's "Installed" state right away (the
+      // returned item has no versionNumber), then refresh in the background
+      // so the versions tab learns which exact version is on disk.
+      if (get().installTarget === modpackId && get().category === category) {
+        set({
+          installedInTarget: {
+            ...get().installedInTarget,
+            [projectId]: { ...item, projectId }
+          }
+        })
+        void get().refreshInstalledInTarget()
+      }
     } catch (err) {
       const message = err instanceof Error ? stripIpcPrefix(err.message) : 'Install failed'
       set({ installErrors: { ...get().installErrors, [projectId]: message } })

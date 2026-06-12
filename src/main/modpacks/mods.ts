@@ -3,6 +3,7 @@ import { createReadStream } from 'fs'
 import { readdir, rename, rm } from 'fs/promises'
 import { join } from 'path'
 import {
+  getLatestVersionsByHashes,
   getModrinthVersion,
   getProjectsByIds,
   getVersionsByHashes,
@@ -12,6 +13,7 @@ import type { VersionFilter } from '../discover/provider'
 import { downloadFile } from '../minecraft/install'
 import { getModpack, instanceDirFor } from './store'
 import type {
+  ContentUpdate,
   InstallableCategory,
   InstallContentParams,
   InstalledContent,
@@ -66,7 +68,8 @@ function toInstalledContent(fileName: string): InstalledContent {
     name: base.replace(/\.(jar|zip)$/, ''),
     enabled,
     versionNumber: null,
-    iconUrl: null
+    iconUrl: null,
+    projectId: null
   }
 }
 
@@ -102,7 +105,8 @@ async function enrichFromModrinth(
         ...item,
         name: project?.title ?? item.name,
         versionNumber: match.versionNumber,
-        iconUrl: project?.iconUrl ?? null
+        iconUrl: project?.iconUrl ?? null,
+        projectId: match.projectId
       }
     })
   } catch {
@@ -170,6 +174,51 @@ function versionFilterFor(category: InstallableCategory, pack: Modpack): Version
   return { gameVersions }
 }
 
+/**
+ * Newer compatible versions for the instance's content files, resolved
+ * through Modrinth's update endpoint by file hash. A file is up to date
+ * when the latest compatible version ships the exact bytes already on
+ * disk; files Modrinth doesn't recognize are skipped.
+ */
+export async function checkContentUpdates(
+  modpackId: string,
+  category: InstallableCategory
+): Promise<ContentUpdate[]> {
+  const pack = getModpack(modpackId)
+  if (pack === null) throw new Error('Modpack not found')
+  // Without a game version (or loader, for mods) "latest compatible"
+  // is undefined — report nothing rather than suggest wrong files.
+  if (pack.gameVersion === null) return []
+  if (category === 'mods' && (pack.loader === null || pack.loader === 'vanilla')) return []
+
+  const dir = contentDir(modpackId, category)
+  let entries: string[]
+  try {
+    entries = await readdir(dir)
+  } catch {
+    return [] // No folder yet.
+  }
+  const files = entries.filter((f) => matchesCategory(f, category))
+  if (files.length === 0) return []
+
+  const hashes = await Promise.all(files.map((f) => sha1OfFile(join(dir, f))))
+  const latest = await getLatestVersionsByHashes(hashes, versionFilterFor(category, pack))
+
+  const updates: ContentUpdate[] = []
+  files.forEach((fileName, index) => {
+    const version = latest.get(hashes[index])
+    if (version === undefined) return
+    if (version.files.some((f) => f.sha1 === hashes[index])) return // Already current.
+    updates.push({
+      fileName,
+      projectId: version.projectId,
+      versionId: version.id,
+      versionNumber: version.versionNumber
+    })
+  })
+  return updates
+}
+
 export async function installContentFromModrinth(
   params: InstallContentParams
 ): Promise<InstalledContent> {
@@ -217,5 +266,10 @@ export async function installContentFromModrinth(
     join(instanceDirFor(pack), target.dir, file.filename),
     file.sha1 ?? undefined
   )
+  // Switching versions: drop the old file once the new one is in place.
+  if (params.replaceFileName !== undefined && params.replaceFileName !== file.filename) {
+    assertSafeFileName(params.replaceFileName, params.category)
+    await rm(join(instanceDirFor(pack), target.dir, params.replaceFileName), { force: true })
+  }
   return toInstalledContent(file.filename)
 }

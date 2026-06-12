@@ -292,6 +292,21 @@
   border-color: var(--accent);
 }
 
+.filterCheckbox {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+.filterCheckbox input {
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
 .downloadButton {
   flex-shrink: 0;
   padding: 6px 12px;

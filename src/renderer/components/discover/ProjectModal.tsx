@@ -69,6 +69,12 @@ export default function ProjectModal({ result }: ProjectModalProps): JSX.Element
   const modpacks = useModpackStore((s) => s.modpacks)
   const targetPack =
     installTarget === null ? null : modpacks.find((m) => m.id === installTarget) ?? null
+  /** This project's file already in the locked target instance, if any. */
+  const installedEntry = useDiscoverStore((s) =>
+    s.installTarget !== null && category !== 'modpacks'
+      ? s.installedInTarget[result.id] ?? null
+      : null
+  )
 
   const [tab, setTab] = useState<ModalTab>('description')
   const [detail, setDetail] = useState<ProjectDetail | null>(null)
@@ -77,6 +83,8 @@ export default function ProjectModal({ result }: ProjectModalProps): JSX.Element
 
   const [loaderFilter, setLoaderFilter] = useState('')
   const [gameVersionFilter, setGameVersionFilter] = useState('')
+  /** + flow only: hide versions the locked target instance can't run. */
+  const [onlyAvailable, setOnlyAvailable] = useState(true)
   /** Version awaiting an instance choice in the picker popup. */
   const [pickingVersionId, setPickingVersionId] = useState<string | null>(null)
   /** Version whose install is in flight — drives the row button label. */
@@ -119,14 +127,18 @@ export default function ProjectModal({ result }: ProjectModalProps): JSX.Element
     return [...set].sort(compareGameVersionsDesc)
   }, [versions])
 
+  // "Show only available" applies in the + flow, where versions the
+  // target instance can't run would otherwise clutter the list disabled.
+  const filterToTarget = onlyAvailable && targetPack !== null && category !== 'modpacks'
   const visibleVersions = useMemo(
     () =>
       (versions ?? []).filter(
         (v) =>
           (loaderFilter === '' || v.loaders.includes(loaderFilter)) &&
-          (gameVersionFilter === '' || v.gameVersions.includes(gameVersionFilter))
+          (gameVersionFilter === '' || v.gameVersions.includes(gameVersionFilter)) &&
+          (!filterToTarget || targetPack === null || versionFits(v, targetPack))
       ),
-    [versions, loaderFilter, gameVersionFilter]
+    [versions, loaderFilter, gameVersionFilter, filterToTarget, targetPack, category]
   )
 
   /** Does this version run on the given instance? */
@@ -141,11 +153,16 @@ export default function ProjectModal({ result }: ProjectModalProps): JSX.Element
       setInstallingVersionId(versionId)
       void installPack(result.id, versionId).finally(() => setInstallingVersionId(null))
     } else if (installTarget !== null) {
-      // Locked to one instance (+ button flow) — no picker.
+      // Locked to one instance (+ button flow) — no picker. When another
+      // version is already installed, this is a switch: the old file is
+      // removed after the new one downloads.
       setInstallingVersionId(versionId)
-      void installContent(result.id, installTarget, versionId).finally(() =>
-        setInstallingVersionId(null)
-      )
+      void installContent(
+        result.id,
+        installTarget,
+        versionId,
+        installedEntry?.fileName
+      ).finally(() => setInstallingVersionId(null))
     } else {
       setPickingVersionId(versionId)
     }
@@ -277,49 +294,69 @@ export default function ProjectModal({ result }: ProjectModalProps): JSX.Element
                       </option>
                     ))}
                   </select>
+                  {targetPack !== null && category !== 'modpacks' && (
+                    <label className={styles.filterCheckbox}>
+                      <input
+                        type="checkbox"
+                        checked={onlyAvailable}
+                        onChange={(e) => setOnlyAvailable(e.target.checked)}
+                      />
+                      Show only available
+                    </label>
+                  )}
                 </div>
                 {visibleVersions.length === 0 ? (
                   <span className={styles.muted}>No versions match the filters.</span>
                 ) : (
                   <ul className={styles.versionList}>
-                    {visibleVersions.map((v) => (
-                      <li key={v.id} className={styles.versionRow}>
-                        <div className={styles.versionInfo}>
-                          <span className={styles.versionNumber}>{v.versionNumber}</span>
-                          <span className={styles.versionMeta}>
-                            {[...v.loaders.map(capitalize), ...v.gameVersions.slice(0, 4)].join(' · ')}
-                            {v.gameVersions.length > 4 ? ' · …' : ''}
-                          </span>
-                        </div>
-                        <div className={styles.versionSide}>
-                          <span className={styles.versionMeta}>↓ {formatDownloads(v.downloads)}</span>
-                          <span className={styles.versionMeta}>
-                            {new Date(v.datePublished).toLocaleDateString()}
-                          </span>
-                        </div>
-                        <button
-                          type="button"
-                          className={styles.downloadButton}
-                          disabled={
-                            installingVersionId !== null ||
-                            installing ||
-                            (category !== 'modpacks' &&
-                              targetPack !== null &&
-                              !versionFits(v, targetPack))
-                          }
-                          title={
-                            category !== 'modpacks' &&
-                            targetPack !== null &&
-                            !versionFits(v, targetPack)
-                              ? `Not compatible with ${targetPack.name}`
-                              : undefined
-                          }
-                          onClick={() => onVersionInstallClick(v.id)}
-                        >
-                          {installingVersionId === v.id ? 'Installing…' : 'Install'}
-                        </button>
-                      </li>
-                    ))}
+                    {visibleVersions.map((v) => {
+                      // Version on disk in the locked target — versionNumber
+                      // is resolved by file hash, so a null means unknown.
+                      const isCurrent =
+                        installedEntry !== null &&
+                        installedEntry.versionNumber !== null &&
+                        v.versionNumber === installedEntry.versionNumber
+                      const incompatible =
+                        category !== 'modpacks' &&
+                        targetPack !== null &&
+                        !versionFits(v, targetPack)
+                      return (
+                        <li key={v.id} className={styles.versionRow}>
+                          <div className={styles.versionInfo}>
+                            <span className={styles.versionNumber}>{v.versionNumber}</span>
+                            <span className={styles.versionMeta}>
+                              {[...v.loaders.map(capitalize), ...v.gameVersions.slice(0, 4)].join(' · ')}
+                              {v.gameVersions.length > 4 ? ' · …' : ''}
+                            </span>
+                          </div>
+                          <div className={styles.versionSide}>
+                            <span className={styles.versionMeta}>↓ {formatDownloads(v.downloads)}</span>
+                            <span className={styles.versionMeta}>
+                              {new Date(v.datePublished).toLocaleDateString()}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            className={styles.downloadButton}
+                            disabled={
+                              installingVersionId !== null || installing || incompatible || isCurrent
+                            }
+                            title={
+                              incompatible ? `Not compatible with ${targetPack.name}` : undefined
+                            }
+                            onClick={() => onVersionInstallClick(v.id)}
+                          >
+                            {installingVersionId === v.id
+                              ? 'Installing…'
+                              : isCurrent
+                                ? 'Installed ✓'
+                                : installedEntry !== null
+                                  ? 'Switch'
+                                  : 'Install'}
+                          </button>
+                        </li>
+                      )
+                    })}
                   </ul>
                 )}
               </>

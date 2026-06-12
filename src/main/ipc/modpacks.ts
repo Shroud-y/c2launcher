@@ -3,6 +3,7 @@ import { mkdir, readFile, stat } from 'fs/promises'
 import { extname } from 'path'
 import { IpcChannel } from '@shared/ipc-channels'
 import type {
+  ContentUpdate,
   CreateModpackParams,
   GameLogLine,
   GameState,
@@ -27,6 +28,7 @@ import {
 } from '../modpacks/store'
 import { installModrinthPack } from '../modpacks/modrinthInstall'
 import {
+  checkContentUpdates,
   installContentFromModrinth,
   listContent,
   removeContentFile,
@@ -285,6 +287,12 @@ export function registerModpackIpc(): void {
     IpcChannel.ModpackMods,
     (_e, id: string, category: InstallableCategory): Promise<InstalledContent[]> =>
       listContent(id, category)
+  )
+
+  ipcMain.handle(
+    IpcChannel.ModpackContentUpdates,
+    (_e, id: string, category: InstallableCategory): Promise<ContentUpdate[]> =>
+      checkContentUpdates(id, category)
   )
 
   ipcMain.handle(

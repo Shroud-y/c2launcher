@@ -35,6 +35,7 @@ export default function Discover(): JSX.Element {
   const search = useDiscoverStore((s) => s.search)
   const installTarget = useDiscoverStore((s) => s.installTarget)
   const setInstallTarget = useDiscoverStore((s) => s.setInstallTarget)
+  const refreshInstalledInTarget = useDiscoverStore((s) => s.refreshInstalledInTarget)
 
   const modpacksLoaded = useModpackStore((s) => s.loaded)
   const loadModpacks = useModpackStore((s) => s.load)
@@ -46,6 +47,12 @@ export default function Discover(): JSX.Element {
   useEffect(() => {
     if (!modpacksLoaded) void loadModpacks()
   }, [modpacksLoaded, loadModpacks])
+
+  // + button flow: know what the target instance already has so results
+  // can show "Installed" and versions can offer "Switch".
+  useEffect(() => {
+    void refreshInstalledInTarget()
+  }, [installTarget, category, refreshInstalledInTarget])
 
   // One effect for every query input: typing is debounced, everything
   // else (tabs, filters, pagination) searches immediately.

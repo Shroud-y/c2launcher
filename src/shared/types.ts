@@ -87,6 +87,8 @@ export interface InstalledContent {
   versionNumber: string | null
   /** Project icon resolved from Modrinth by file hash; null offline/unknown. */
   iconUrl: string | null
+  /** Source project id resolved from Modrinth by file hash; null offline/unknown. */
+  projectId: string | null
 }
 
 export interface InstallContentParams {
@@ -97,6 +99,21 @@ export interface InstallContentParams {
   category: InstallableCategory
   /** Exact version to install; absent picks the best match for the pack. */
   versionId?: string
+  /**
+   * File of a previously installed version of the same project to delete
+   * after the new file lands — used by the "Switch" version action.
+   */
+  replaceFileName?: string
+}
+
+/** A newer compatible version available for an installed content file. */
+export interface ContentUpdate {
+  /** File currently on disk (may carry the .disabled suffix). */
+  fileName: string
+  projectId: string
+  /** Version to install when the user accepts the update. */
+  versionId: string
+  versionNumber: string
 }
 
 export interface MinecraftProfile {

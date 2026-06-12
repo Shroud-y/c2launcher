@@ -399,6 +399,37 @@
   gap: 10px;
 }
 
+.modUpdate,
+.modUpdateBusy {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  color: var(--accent);
+  transition: background 0.15s;
+}
+
+.modUpdate:hover:enabled {
+  background: rgba(78, 205, 196, 0.15);
+}
+
+.modUpdate:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.modUpdateBusy {
+  animation: modUpdatePulse 1s ease-in-out infinite;
+}
+
+@keyframes modUpdatePulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
 .modRemove {
   display: flex;
   align-items: center;
