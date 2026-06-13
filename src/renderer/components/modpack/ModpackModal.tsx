@@ -646,7 +646,7 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
                   onChange={(e) => setLoaderVersion(e.target.value)}
                   disabled={localPack === null || loaderVersionsLoading}
                 >
-                  <option value="">{loaderVersionsLoading ? 'Loading…' : 'Latest'}</option>
+                  <option value="">{loaderVersionsLoading ? 'Loading…' : 'LTS'}</option>
                   {loaderVersion !== '' && !loaderVersions.includes(loaderVersion) && (
                     <option value={loaderVersion}>{loaderVersion}</option>
                   )}

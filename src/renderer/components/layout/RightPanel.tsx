@@ -1,8 +1,12 @@
 import { useLocation } from 'react-router-dom'
 import Avatar from '../common/Avatar'
 import FilterSidebar from '../discover/FilterSidebar'
+import { GitHubIcon } from '../common/Icons'
 import { useAuthStore } from '../../store/authStore'
 import styles from './RightPanel.module.css'
+
+// Edit to your repository URL.
+const GITHUB_URL = 'https://github.com/Shroud-y/c2launcher'
 
 function AccountSection(): JSX.Element {
   const { profile, status, error, login } = useAuthStore()
@@ -45,7 +49,25 @@ export default function RightPanel(): JSX.Element {
   return (
     <aside className={styles.panel}>
       <AccountSection />
-      {pathname === '/discover' && <FilterSidebar />}
+      <a
+        className={styles.github}
+        href={GITHUB_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        title="View on GitHub"
+        aria-label="View on GitHub"
+      >
+        <GitHubIcon size={22} />
+      </a>
+      {pathname === '/discover' ? (
+        <FilterSidebar />
+      ) : (
+        <div className={styles.dividers}>
+          <span className={styles.divider} />
+          <span className={styles.divider} />
+          <span className={styles.divider} />
+        </div>
+      )}
     </aside>
   )
 }

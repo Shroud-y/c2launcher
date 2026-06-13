@@ -13,7 +13,7 @@ export default function Home(): JSX.Element {
     <div className={styles.page}>
       <div className={styles.headingWrap}>
         <div className={styles.headingPill}>
-          <GridIcon />
+          <GridIcon size={40} />
           <span>Your modpacks</span>
         </div>
       </div>

@@ -72,6 +72,14 @@ export function LogoutIcon({ size = 22, className }: IconProps): JSX.Element {
   )
 }
 
+export function GitHubIcon({ size = 22, className }: IconProps): JSX.Element {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}>
+      <path d="M12 .5C5.7.5.5 5.8.5 12.3c0 5.2 3.3 9.6 8 11.2.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.5-1.4-1.3-1.8-1.3-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1.1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.7 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6 4.7-1.6 8-6 8-11.2C23.5 5.8 18.3.5 12 .5z" />
+    </svg>
+  )
+}
+
 export function GridIcon({ size = 20, className }: IconProps): JSX.Element {
   return (
     <svg {...svgProps(size, className)}>

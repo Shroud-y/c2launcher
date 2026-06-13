@@ -4,6 +4,7 @@
   height: var(--topbar-height);
   flex-shrink: 0;
   -webkit-app-region: drag;
+  background: var(--bg-secondary); 
 }
 
 .logoSlot {

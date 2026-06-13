@@ -6,6 +6,7 @@
   width: var(--sidebar-width);
   flex-shrink: 0;
   padding: 8px 0 16px;
+  background: var(--bg-secondary);
 }
 
 .separator {

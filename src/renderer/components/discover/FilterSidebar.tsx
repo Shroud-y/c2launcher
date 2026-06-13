@@ -101,7 +101,7 @@ export default function FilterSidebar(): JSX.Element {
 
   return (
     <div className={styles.sidebar}>
-      <section>
+      <section className={styles.categorySection}>
         <h3 className={styles.heading}>Category</h3>
         <ul className={styles.categoryList}>
           {CATEGORIES[category].map((cat) => {
