@@ -19,6 +19,24 @@
   flex: 1;
 }
 
+.recentWrap {
+  position: relative;
+  display: flex;
+}
+
+.runningDot {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--bg-primary);
+  box-shadow: 0 0 6px var(--accent);
+  pointer-events: none;
+}
+
 .recentSlot {
   display: flex;
   align-items: center;

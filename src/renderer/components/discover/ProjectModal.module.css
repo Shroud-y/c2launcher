@@ -11,8 +11,9 @@
 .modal {
   position: relative;
   width: 640px;
+  height: 620px;
   max-width: calc(100vw - 80px);
-  max-height: calc(100vh - 120px);
+  max-height: calc(100vh - 60px);
   display: flex;
   flex-direction: column;
   background: var(--bg-secondary);
@@ -156,8 +157,11 @@
 }
 
 .body {
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
-  min-height: 160px;
+  margin-right: -12px;
+  padding-right: 12px;
 }
 
 .muted {

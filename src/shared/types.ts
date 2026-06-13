@@ -37,11 +37,19 @@ export interface ModpackSettings {
   javaArgs: string
   /** Null keeps the current version (or stays unassigned). */
   gameVersion: string | null
+  /** Undefined leaves the loader unchanged. */
+  loader?: ModLoader | null
+  /** Undefined leaves it unchanged; null resolves the latest build at launch. */
+  loaderVersion?: string | null
 }
 
 export interface AppSettings {
   /** App-data folder holding all launcher state (config, instances, game files). */
   dataDir: string
+  /** False when the data folder is a user-chosen override of the default. */
+  dataDirIsDefault: boolean
+  /** Absolute path to a user-picked Java executable; null uses bundled/system Java. */
+  javaPath: string | null
 }
 
 export type InstallPhase =

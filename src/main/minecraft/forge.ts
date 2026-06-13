@@ -18,9 +18,17 @@ export type ForgeLikeLoader = 'forge' | 'neoforge'
 const FORGE_PROMOTIONS =
   'https://files.minecraftforge.net/net/minecraftforge/forge/promotions_slim.json'
 const FORGE_MAVEN = 'https://maven.minecraftforge.net/net/minecraftforge/forge'
+const FORGE_METADATA =
+  'https://maven.minecraftforge.net/net/minecraftforge/forge/maven-metadata.xml'
 const NEOFORGE_VERSIONS =
   'https://maven.neoforged.net/api/maven/versions/releases/net/neoforged/neoforge'
 const NEOFORGE_MAVEN = 'https://maven.neoforged.net/releases/net/neoforged/neoforge'
+// NeoForge's first MC, 1.20.1, predates the neoforge artifact: it lives under
+// the legacy net.neoforged:forge artifact, versioned 1.20.1-47.1.x.
+const NEOFORGE_LEGACY_VERSIONS =
+  'https://maven.neoforged.net/api/maven/versions/releases/net/neoforged/forge'
+const NEOFORGE_LEGACY_MAVEN = 'https://maven.neoforged.net/releases/net/neoforged/forge'
+const NEOFORGE_LEGACY_MC = '1.20.1'
 
 const INSTALLER_TIMEOUT_MS = 10 * 60 * 1000
 
@@ -28,6 +36,34 @@ async function fetchJson<T>(url: string): Promise<T> {
   const res = await fetch(url)
   if (!res.ok) throw new Error(`Loader meta request failed (${res.status}): ${url}`)
   return (await res.json()) as T
+}
+
+async function fetchText(url: string): Promise<string> {
+  const res = await fetch(url)
+  if (!res.ok) throw new Error(`Loader meta request failed (${res.status}): ${url}`)
+  return res.text()
+}
+
+/** All loader builds for a game version, newest first. */
+export async function listForgeLikeVersions(
+  loader: ForgeLikeLoader,
+  gameVersion: string
+): Promise<string[]> {
+  if (loader === 'forge') {
+    if (minecraftMinor(gameVersion) < 13) return []
+    const xml = await fetchText(FORGE_METADATA)
+    const all = [...xml.matchAll(/<version>([^<]+)<\/version>/g)].map((m) => m[1])
+    const prefix = `${gameVersion}-`
+    // maven-metadata is oldest→newest; reverse for newest first.
+    return all.filter((v) => v.startsWith(prefix)).map((v) => v.slice(prefix.length)).reverse()
+  }
+  if (gameVersion === NEOFORGE_LEGACY_MC) {
+    const { versions } = await fetchJson<{ versions: string[] }>(NEOFORGE_LEGACY_VERSIONS)
+    const prefix = `${NEOFORGE_LEGACY_MC}-`
+    return versions.filter((v) => v.startsWith(prefix)).map((v) => v.slice(prefix.length)).reverse()
+  }
+  const { versions } = await fetchJson<{ versions: string[] }>(NEOFORGE_VERSIONS)
+  return versions.filter((v) => v.startsWith(neoforgePrefix(gameVersion))).reverse()
 }
 
 async function fileExists(path: string): Promise<boolean> {
@@ -44,10 +80,25 @@ function minecraftMinor(gameVersion: string): number {
   return match === null ? 0 : Number(match[1])
 }
 
-/** NeoForge versions track Minecraft: MC 1.21.4 → 21.4.x, MC 1.21 → 21.0.x. */
+/**
+ * NeoForge versions track Minecraft:
+ *  - Old "1.MINOR[.PATCH]" scheme → MINOR.PATCH.x (MC 1.21.4 → 21.4.x, 1.21 → 21.0.x).
+ *  - Calendar scheme "YY.MINOR.PATCH" → the full version + .x (MC 26.1.2 → 26.1.2.x).
+ */
 function neoforgePrefix(gameVersion: string): string {
-  const parts = gameVersion.split('.')
-  return `${parts[1] ?? '0'}.${parts[2] ?? '0'}.`
+  if (gameVersion.startsWith('1.')) {
+    const parts = gameVersion.split('.')
+    return `${parts[1] ?? '0'}.${parts[2] ?? '0'}.`
+  }
+  return `${gameVersion}.`
+}
+
+/** Picks the newest non-beta entry (falling back to betas if that's all there is). */
+function pickLatest(candidates: string[], label: string): string {
+  if (candidates.length === 0) throw new Error(label)
+  const stable = candidates.filter((v) => !v.includes('beta'))
+  const pool = stable.length > 0 ? stable : candidates
+  return pool[pool.length - 1]
 }
 
 export async function resolveForgeVersion(
@@ -62,18 +113,25 @@ export async function resolveForgeVersion(
     }
     return version
   }
+  const noBuilds = `NeoForge has no builds for Minecraft ${gameVersion}`
+  // 1.20.1 lives under the legacy net.neoforged:forge artifact as 1.20.1-47.1.x.
+  if (gameVersion === NEOFORGE_LEGACY_MC) {
+    const { versions } = await fetchJson<{ versions: string[] }>(NEOFORGE_LEGACY_VERSIONS)
+    const prefix = `${NEOFORGE_LEGACY_MC}-`
+    const candidates = versions.filter((v) => v.startsWith(prefix))
+    // Store just the build (47.1.x); the MC prefix is re-added where needed.
+    return pickLatest(candidates, noBuilds).slice(prefix.length)
+  }
   const { versions } = await fetchJson<{ versions: string[] }>(NEOFORGE_VERSIONS)
   const candidates = versions.filter((v) => v.startsWith(neoforgePrefix(gameVersion)))
-  if (candidates.length === 0) {
-    throw new Error(`NeoForge has no builds for Minecraft ${gameVersion}`)
-  }
-  const stable = candidates.filter((v) => !v.includes('beta'))
-  const pool = stable.length > 0 ? stable : candidates
-  return pool[pool.length - 1]
+  return pickLatest(candidates, noBuilds)
 }
 
 function versionIdFor(loader: ForgeLikeLoader, gameVersion: string, loaderVersion: string): string {
-  return loader === 'forge' ? `${gameVersion}-forge-${loaderVersion}` : `neoforge-${loaderVersion}`
+  if (loader === 'forge') return `${gameVersion}-forge-${loaderVersion}`
+  // The legacy 1.20.1 installer writes id "1.20.1-forge-47.1.x".
+  if (gameVersion === NEOFORGE_LEGACY_MC) return `${NEOFORGE_LEGACY_MC}-forge-${loaderVersion}`
+  return `neoforge-${loaderVersion}`
 }
 
 function installerUrlFor(
@@ -84,6 +142,10 @@ function installerUrlFor(
   if (loader === 'forge') {
     const full = `${gameVersion}-${loaderVersion}`
     return `${FORGE_MAVEN}/${full}/forge-${full}-installer.jar`
+  }
+  if (gameVersion === NEOFORGE_LEGACY_MC) {
+    const full = `${NEOFORGE_LEGACY_MC}-${loaderVersion}`
+    return `${NEOFORGE_LEGACY_MAVEN}/${full}/forge-${full}-installer.jar`
   }
   return `${NEOFORGE_MAVEN}/${loaderVersion}/neoforge-${loaderVersion}-installer.jar`
 }

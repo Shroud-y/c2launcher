@@ -50,6 +50,19 @@ export async function resolveLoaderVersion(
   return (stable ?? entries[0]).loader.version
 }
 
+/** All loader builds for a game version, newest first (meta lists them so). */
+export async function listLoaderVersions(
+  loader: 'fabric' | 'quilt',
+  gameVersion: string
+): Promise<string[]> {
+  const server = META_SERVERS[loader]
+  if (server === undefined) throw new Error(`No meta server for ${loader}`)
+  const entries = await fetchJson<LoaderVersionEntry[]>(
+    `${server.base}/versions/loader/${encodeURIComponent(gameVersion)}`
+  )
+  return entries.map((e) => e.loader.version)
+}
+
 /** "group:artifact:version[:classifier]" → maven repository path. */
 function mavenPath(coordinate: string): string {
   const [group, artifact, version, classifier] = coordinate.split(':')

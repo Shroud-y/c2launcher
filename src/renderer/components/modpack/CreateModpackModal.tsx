@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { CloseIcon } from '../common/Icons'
+import LoaderIcon from '../common/LoaderIcons'
 import { useModalStore } from '../../store/modalStore'
 import { useModpackStore } from '../../store/modpackStore'
 import type { ModLoader } from '@shared/types'
@@ -24,6 +25,9 @@ export default function CreateModpackModal(): JSX.Element {
   const [gameVersion, setGameVersion] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [checking, setChecking] = useState(false)
+  /** Per non-vanilla loader: false = confirmed no build for the version. */
+  const [avail, setAvail] = useState<Partial<Record<ModLoader, boolean>>>({})
 
   useEffect(() => {
     let cancelled = false
@@ -42,8 +46,38 @@ export default function CreateModpackModal(): JSX.Element {
     }
   }, [])
 
+  // Check every loader against the chosen version so unsupported ones can
+  // be grayed out — never create an instance that can't launch. Network
+  // failures are treated as "available" so offline users can still create.
+  useEffect(() => {
+    if (gameVersion === '') return
+    let cancelled = false
+    setChecking(true)
+    setAvail({})
+    const targets: ModLoader[] = ['fabric', 'forge', 'neoforge', 'quilt']
+    void Promise.all(
+      targets.map((l) =>
+        window.api.loader
+          .check(l, gameVersion)
+          .then((ok) => [l, ok] as const)
+          .catch(() => [l, true] as const)
+      )
+    ).then((results) => {
+      if (cancelled) return
+      const map: Partial<Record<ModLoader, boolean>> = {}
+      for (const [l, ok] of results) map[l] = ok
+      setAvail(map)
+      setChecking(false)
+      // If the selected loader just became unavailable, fall back to Vanilla.
+      setLoader((cur) => (cur !== 'vanilla' && map[cur] === false ? 'vanilla' : cur))
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [gameVersion])
+
   async function submit(): Promise<void> {
-    if (gameVersion === '' || submitting) return
+    if (gameVersion === '' || submitting || checking) return
     setSubmitting(true)
     setError(null)
     try {
@@ -83,16 +117,22 @@ export default function CreateModpackModal(): JSX.Element {
         <div className={styles.field}>
           <span className={styles.fieldLabel}>Loader</span>
           <div className={styles.loaderRow}>
-            {LOADERS.map((l) => (
-              <button
-                key={l.id}
-                type="button"
-                className={loader === l.id ? styles.loaderActive : styles.loader}
-                onClick={() => setLoader(l.id)}
-              >
-                {l.label}
-              </button>
-            ))}
+            {LOADERS.map((l) => {
+              const unavailable = l.id !== 'vanilla' && avail[l.id] === false
+              return (
+                <button
+                  key={l.id}
+                  type="button"
+                  className={loader === l.id ? styles.loaderActive : styles.loader}
+                  disabled={unavailable}
+                  title={unavailable ? `No ${l.label} build for Minecraft ${gameVersion}` : undefined}
+                  onClick={() => setLoader(l.id)}
+                >
+                  <LoaderIcon loader={l.id} size={15} />
+                  {l.label}
+                </button>
+              )
+            })}
           </div>
         </div>
 
@@ -117,7 +157,7 @@ export default function CreateModpackModal(): JSX.Element {
         <button
           type="button"
           className={styles.createButton}
-          disabled={gameVersion === '' || submitting}
+          disabled={gameVersion === '' || submitting || checking}
           onClick={() => void submit()}
         >
           {submitting ? 'Creating…' : 'Create'}

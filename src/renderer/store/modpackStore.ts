@@ -15,6 +15,8 @@ interface ModpackState {
   /** Active install progress per modpack id; cleared on done/error. */
   installProgress: Record<string, InstallProgress>
   gameStates: Record<string, GameStateKind>
+  /** Last exit/error per modpack; set on exited/error, cleared on (re)launch. */
+  gameResults: Record<string, { exitCode?: number; message?: string }>
   logs: Record<string, string[]>
   launchError: string | null
 
@@ -40,6 +42,7 @@ export const useModpackStore = create<ModpackState>((set, get) => ({
   loaded: false,
   installProgress: {},
   gameStates: {},
+  gameResults: {},
   logs: {},
   launchError: null,
 
@@ -105,7 +108,13 @@ export const useModpackStore = create<ModpackState>((set, get) => ({
 
     window.api.modpack.onGameState((s) => {
       const gameStates = { ...get().gameStates, [s.modpackId]: s.state }
-      set({ gameStates })
+      const gameResults = { ...get().gameResults }
+      if (s.state === 'launching' || s.state === 'running') {
+        delete gameResults[s.modpackId]
+      } else {
+        gameResults[s.modpackId] = { exitCode: s.exitCode, message: s.message }
+      }
+      set({ gameStates, gameResults })
     })
 
     window.api.modpack.onGameLog((l) => {

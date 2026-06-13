@@ -20,15 +20,17 @@ export default function ModpackCard({ modpack }: ModpackCardProps): JSX.Element 
   const progress = useModpackStore((s) => s.installProgress[modpack.id])
   const gameState = useModpackStore((s) => s.gameStates[modpack.id])
 
+  const isRunning = gameState === 'running' || gameState === 'launching'
   const subtitle =
     progress !== undefined
       ? `${progress.message} (${progress.percent}%)`
-      : gameState === 'running' || gameState === 'launching'
+      : isRunning
         ? 'Running'
         : formatSubtitle(modpack)
 
   return (
     <button type="button" className={styles.card} onClick={() => openModpack(modpack.id)}>
+      {isRunning && <span className={styles.runningDot} aria-hidden="true" />}
       <span className={`${styles.icon} ${TINT_CLASS[modpack.iconTint]}`}>
         {(modpack.icon ?? null) !== null ? (
           <img className={styles.iconImage} src={modpack.icon ?? ''} alt="" />

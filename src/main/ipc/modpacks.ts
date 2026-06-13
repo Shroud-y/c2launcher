@@ -11,6 +11,7 @@ import type {
   InstalledContent,
   InstallContentParams,
   InstallProgress,
+  ModLoader,
   Modpack,
   ModpackSettings
 } from '@shared/types'
@@ -36,12 +37,13 @@ import {
 } from '../modpacks/mods'
 import { listReleaseVersionIds } from '../minecraft/manifest'
 import { ensureVersionInstalled } from '../minecraft/install'
-import { applyLoader } from '../minecraft/loader'
-import { applyForgeLoader } from '../minecraft/forge'
+import { applyLoader, listLoaderVersions, resolveLoaderVersion } from '../minecraft/loader'
+import { applyForgeLoader, listForgeLikeVersions, resolveForgeVersion } from '../minecraft/forge'
 import { launchGame } from '../minecraft/launch'
 import { ensureMojangRuntime, findJava } from '../minecraft/java'
 import { getMinecraftSession } from '../auth/microsoftAuth'
 import { loadRefreshToken, saveRefreshToken } from '../auth/tokenStore'
+import { getJavaOverride } from '../settings/store'
 
 import type { ChildProcess } from 'child_process'
 
@@ -75,6 +77,13 @@ async function resolveJava(
   modpackId: string,
   required: { component?: string; majorVersion: number } | undefined
 ): Promise<string> {
+  // A user-set Java override wins over the bundled runtime and PATH.
+  const override = getJavaOverride()
+  if (override !== null && override !== '') {
+    sendLog({ modpackId, stream: 'system', line: `Using Java override (${override})` })
+    return override
+  }
+
   if (required?.component !== undefined) {
     try {
       const javaPath = await ensureMojangRuntime(minecraftRoot(), required.component, (percent, message) => {
@@ -277,6 +286,40 @@ export function registerModpackIpc(): void {
   })
 
   ipcMain.handle(IpcChannel.MinecraftVersions, (): Promise<string[]> => listReleaseVersionIds())
+
+  // Whether the loader has any build for the given Minecraft version.
+  // A definitive "no builds" answer returns false; transient/network
+  // errors are rethrown so the renderer can fall back to allowing it.
+  ipcMain.handle(
+    IpcChannel.LoaderCheck,
+    async (_e, loader: ModLoader, gameVersion: string): Promise<boolean> => {
+      if (loader === 'vanilla' || gameVersion === '') return true
+      try {
+        if (loader === 'fabric' || loader === 'quilt') {
+          await resolveLoaderVersion(loader, gameVersion)
+        } else {
+          await resolveForgeVersion(loader, gameVersion)
+        }
+        return true
+      } catch (err) {
+        const message = err instanceof Error ? err.message : ''
+        if (/has no builds|only supported/i.test(message)) return false
+        throw err
+      }
+    }
+  )
+
+  // All loader builds for a game version, newest first (empty for vanilla).
+  ipcMain.handle(
+    IpcChannel.LoaderVersions,
+    (_e, loader: ModLoader, gameVersion: string): Promise<string[]> => {
+      if (loader === 'vanilla' || gameVersion === '') return Promise.resolve([])
+      if (loader === 'fabric' || loader === 'quilt') {
+        return listLoaderVersions(loader, gameVersion)
+      }
+      return listForgeLikeVersions(loader, gameVersion)
+    }
+  )
 
   ipcMain.handle(
     IpcChannel.ModpackInstallModrinth,

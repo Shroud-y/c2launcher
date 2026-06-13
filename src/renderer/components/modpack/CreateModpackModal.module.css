@@ -78,6 +78,10 @@
 .loader,
 .loaderActive {
   flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   padding: 8px 0;
   border-radius: 8px;
   border: 1px solid var(--border);
@@ -104,6 +108,11 @@
 .error {
   font-size: 12px;
   color: #f85149;
+}
+
+.hint {
+  font-size: 12px;
+  color: var(--text-muted);
 }
 
 .createButton {

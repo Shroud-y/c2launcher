@@ -22,6 +22,7 @@ export default function Sidebar(): JSX.Element {
   const openCreate = useModalStore((s) => s.openCreate)
   const openSettings = useModalStore((s) => s.openSettings)
   const modpacks = useModpackStore((s) => s.modpacks)
+  const gameStates = useModpackStore((s) => s.gameStates)
   const setInstallTarget = useDiscoverStore((s) => s.setInstallTarget)
 
   const recent = [...modpacks]
@@ -49,22 +50,28 @@ export default function Sidebar(): JSX.Element {
 
       <div className={styles.separator} />
 
-      {recent.map((pack) => (
-        <button
-          key={pack.id}
-          type="button"
-          className={`${styles.recentSlot} ${styles[TINT_CLASS[pack.iconTint]]}`}
-          title={pack.name}
-          aria-label={pack.name}
-          onClick={() => openModpack(pack.id)}
-        >
-          {(pack.icon ?? null) !== null ? (
-            <img className={styles.recentIcon} src={pack.icon ?? ''} alt="" />
-          ) : (
-            <WindIcon />
-          )}
-        </button>
-      ))}
+      {recent.map((pack) => {
+        const isRunning =
+          gameStates[pack.id] === 'running' || gameStates[pack.id] === 'launching'
+        return (
+          <div key={pack.id} className={styles.recentWrap}>
+            <button
+              type="button"
+              className={`${styles.recentSlot} ${styles[TINT_CLASS[pack.iconTint]]}`}
+              title={pack.name}
+              aria-label={pack.name}
+              onClick={() => openModpack(pack.id)}
+            >
+              {(pack.icon ?? null) !== null ? (
+                <img className={styles.recentIcon} src={pack.icon ?? ''} alt="" />
+              ) : (
+                <WindIcon />
+              )}
+            </button>
+            {isRunning && <span className={styles.runningDot} aria-hidden="true" />}
+          </div>
+        )
+      })}
 
       <IconButton label="Add modpack" onClick={openCreate}>
         <PlusIcon />

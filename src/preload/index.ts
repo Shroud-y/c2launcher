@@ -11,6 +11,7 @@ import type {
   InstallContentParams,
   InstallProgress,
   MinecraftProfile,
+  ModLoader,
   Modpack,
   ModpackSettings,
   ProjectDetail,
@@ -76,6 +77,12 @@ const api = {
   minecraft: {
     versions: (): Promise<string[]> => ipcRenderer.invoke(IpcChannel.MinecraftVersions)
   },
+  loader: {
+    check: (loader: ModLoader, gameVersion: string): Promise<boolean> =>
+      ipcRenderer.invoke(IpcChannel.LoaderCheck, loader, gameVersion),
+    versions: (loader: ModLoader, gameVersion: string): Promise<string[]> =>
+      ipcRenderer.invoke(IpcChannel.LoaderVersions, loader, gameVersion)
+  },
   discover: {
     search: (query: SearchQuery): Promise<SearchResponse> =>
       ipcRenderer.invoke(IpcChannel.DiscoverSearch, query),
@@ -86,7 +93,11 @@ const api = {
   },
   settings: {
     get: (): Promise<AppSettings> => ipcRenderer.invoke(IpcChannel.SettingsGet),
-    openDataDir: (): Promise<void> => ipcRenderer.invoke(IpcChannel.SettingsOpenDataDir)
+    openDataDir: (): Promise<void> => ipcRenderer.invoke(IpcChannel.SettingsOpenDataDir),
+    chooseJava: (): Promise<AppSettings> => ipcRenderer.invoke(IpcChannel.SettingsChooseJava),
+    clearJava: (): Promise<AppSettings> => ipcRenderer.invoke(IpcChannel.SettingsClearJava),
+    chooseDataDir: (): Promise<void> => ipcRenderer.invoke(IpcChannel.SettingsChooseDataDir),
+    resetDataDir: (): Promise<void> => ipcRenderer.invoke(IpcChannel.SettingsResetDataDir)
   }
 }
 

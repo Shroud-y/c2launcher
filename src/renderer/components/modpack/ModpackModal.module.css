@@ -11,14 +11,27 @@
 .modal {
   position: relative;
   width: 640px;
+  height: 620px;
   max-width: calc(100vw - 80px);
-  max-height: calc(100vh - 120px);
+  max-height: calc(100vh - 60px);
   display: flex;
   flex-direction: column;
   background: var(--bg-secondary);
   border: 1px solid var(--border);
   border-radius: var(--card-radius);
   padding: 24px;
+}
+
+/* Scrolling region under the fixed header + tabs. The negative margin
+   pushes the scrollbar toward the modal edge; padding keeps content clear. */
+.body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  margin-right: -12px;
+  padding-right: 12px;
 }
 
 .closeButton {
@@ -250,20 +263,40 @@
   color: #f85149;
 }
 
-.dangerConfirm {
+.confirmOverlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  border-radius: var(--card-radius);
+  z-index: 10;
+}
+
+.confirmBox {
+  width: 360px;
+  max-width: calc(100% - 48px);
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 12px;
-  border-radius: 8px;
+  gap: 12px;
+  padding: 20px;
+  border-radius: 10px;
   border: 1px solid rgba(248, 81, 73, 0.4);
-  background: rgba(248, 81, 73, 0.08);
+  background: var(--bg-secondary);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+}
+
+.confirmTitle {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
 }
 
 .dangerWarning {
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.5;
-  color: var(--text-primary);
+  color: var(--text-muted);
 }
 
 .dangerButtons {
@@ -305,8 +338,7 @@
 
 .logView {
   flex: 1;
-  min-height: 220px;
-  max-height: 320px;
+  min-height: 0;
   overflow-y: auto;
   background: var(--bg-primary);
   border: 1px solid var(--border);
@@ -321,9 +353,50 @@
   user-select: text;
 }
 
+.contentToolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.searchInput {
+  flex: 1;
+  min-width: 0;
+  padding: 7px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 13px;
+  outline: none;
+}
+
+.searchInput:focus {
+  border-color: var(--accent);
+}
+
+.updateAllButton {
+  padding: 7px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.updateAllButton:hover:enabled {
+  background: var(--bg-hover);
+}
+
+.updateAllButton:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 .modList {
   list-style: none;
-  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 4px;

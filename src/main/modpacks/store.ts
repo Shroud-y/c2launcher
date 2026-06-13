@@ -211,7 +211,10 @@ export async function applySettings(id: string, settings: ModpackSettings): Prom
     dirName,
     memoryMb: Math.max(512, Math.min(65536, Math.round(settings.memoryMb))),
     javaArgs: settings.javaArgs.trim(),
-    gameVersion: settings.gameVersion ?? current.gameVersion
+    gameVersion: settings.gameVersion ?? current.gameVersion,
+    loader: settings.loader === undefined ? current.loader : settings.loader,
+    loaderVersion:
+      settings.loaderVersion === undefined ? current.loaderVersion : settings.loaderVersion
   })
   if (updated !== null) await writeInstanceFile(updated)
   return updated

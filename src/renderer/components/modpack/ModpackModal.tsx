@@ -5,7 +5,7 @@ import { formatSubtitle } from '../../data/format'
 import { useDiscoverStore } from '../../store/discoverStore'
 import { useModalStore } from '../../store/modalStore'
 import { useModpackStore } from '../../store/modpackStore'
-import type { ContentUpdate, InstallableCategory, InstalledContent } from '@shared/types'
+import type { ContentUpdate, InstallableCategory, InstalledContent, ModLoader } from '@shared/types'
 import styles from './ModpackModal.module.css'
 
 const CONTENT_TABS: InstallableCategory[] = ['mods', 'resourcepacks', 'shaders', 'datapacks']
@@ -45,6 +45,7 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
     modpacks,
     installProgress,
     gameStates,
+    gameResults,
     logs,
     launchError,
     launch,
@@ -63,6 +64,11 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
   const [javaArgs, setJavaArgs] = useState(pack?.javaArgs ?? '')
   const [gameVersion, setGameVersion] = useState(pack?.gameVersion ?? '')
   const [versions, setVersions] = useState<string[]>([])
+  const [loader, setLoader] = useState<ModLoader>(pack?.loader ?? 'vanilla')
+  /** Empty string = latest (resolved at launch). */
+  const [loaderVersion, setLoaderVersion] = useState(pack?.loaderVersion ?? '')
+  const [loaderVersions, setLoaderVersions] = useState<string[]>([])
+  const [loaderVersionsLoading, setLoaderVersionsLoading] = useState(false)
   const [settingsSaved, setSettingsSaved] = useState(false)
   const [settingsError, setSettingsError] = useState<string | null>(null)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
@@ -76,6 +82,9 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
     Partial<Record<InstallableCategory, Record<string, ContentUpdate>>>
   >({})
   const [updatingFile, setUpdatingFile] = useState<string | null>(null)
+  const [bulkUpdating, setBulkUpdating] = useState(false)
+  /** Per-tab name filter for the installed list; reset when switching tabs. */
+  const [search, setSearch] = useState('')
 
   useEffect(() => {
     if (!isContentTab(tab) || content[tab] !== undefined) return
@@ -113,6 +122,30 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
       })
   }, [tab, versions.length])
 
+  // Loader builds for the chosen loader + version, for the picker dropdown.
+  useEffect(() => {
+    if (tab !== 'settings' || loader === 'vanilla' || gameVersion === '') {
+      setLoaderVersions([])
+      return
+    }
+    let cancelled = false
+    setLoaderVersionsLoading(true)
+    window.api.loader
+      .versions(loader, gameVersion)
+      .then((list) => {
+        if (!cancelled) setLoaderVersions(list)
+      })
+      .catch(() => {
+        if (!cancelled) setLoaderVersions([])
+      })
+      .finally(() => {
+        if (!cancelled) setLoaderVersionsLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [tab, loader, gameVersion])
+
   const logRef = useRef<HTMLPreElement>(null)
   const packLogs = logs[modpackId] ?? []
 
@@ -129,6 +162,14 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
   const isInstalling = progress !== undefined
   const isRunning = gameState === 'launching' || gameState === 'running'
 
+  const result = gameResults[modpackId]
+  const crashText =
+    gameState === 'error'
+      ? (result?.message ?? 'The game failed to launch.')
+      : gameState === 'exited' && (result?.exitCode ?? 0) !== 0
+        ? `Minecraft crashed (exit code ${result?.exitCode}). Check the Logs tab for details.`
+        : null
+
   const subtitle = formatSubtitle(pack)
   const statusText =
     progress !== undefined
@@ -138,6 +179,12 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
         : gameState === 'running'
           ? 'Running'
           : null
+
+  const tabContent = isContentTab(tab) ? (content[tab] ?? []) : []
+  const visibleContent = tabContent.filter((m) =>
+    m.name.toLowerCase().includes(search.toLowerCase())
+  )
+  const tabUpdateCount = isContentTab(tab) ? Object.keys(updates[tab] ?? {}).length : 0
 
   function play(): void {
     setTab('logs')
@@ -257,6 +304,19 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
     }
   }
 
+  /** Applies every available update in a tab, one after another. */
+  async function updateAll(category: InstallableCategory): Promise<void> {
+    const forTab = updates[category]
+    if (forTab === undefined) return
+    setBulkUpdating(true)
+    setModsError(null)
+    for (const fileName of Object.keys(forTab)) {
+      const item = (content[category] ?? []).find((m) => m.fileName === fileName)
+      if (item !== undefined) await applyUpdate(category, item)
+    }
+    setBulkUpdating(false)
+  }
+
   async function removeContent(
     category: InstallableCategory,
     item: InstalledContent
@@ -281,7 +341,9 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
         name,
         memoryMb,
         javaArgs,
-        gameVersion: gameVersion === '' ? null : gameVersion
+        gameVersion: gameVersion === '' ? null : gameVersion,
+        loader,
+        loaderVersion: loaderVersion === '' ? null : loaderVersion
       })
       setSettingsSaved(true)
       setTimeout(() => setSettingsSaved(false), 1500)
@@ -366,6 +428,7 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
         </header>
 
         {launchError !== null && <div className={styles.error}>{launchError}</div>}
+        {crashText !== null && <div className={styles.error}>{crashText}</div>}
 
         <nav className={styles.tabs}>
           {([...CONTENT_TABS, 'settings', 'logs'] as ModalTab[]).map((t) => (
@@ -373,26 +436,53 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
               key={t}
               type="button"
               className={tab === t ? styles.tabActive : styles.tab}
-              onClick={() => setTab(t)}
+              onClick={() => {
+                setSearch('')
+                setTab(t)
+              }}
             >
               {TAB_LABELS[t]}
             </button>
           ))}
         </nav>
 
+        <div className={styles.body}>
         {isContentTab(tab) && (
           <>
             {modsError !== null && <div className={styles.error}>{modsError}</div>}
             {content[tab] === undefined ? (
               <div className={styles.placeholderNote}>Reading {EMPTY_NOTES[tab].label}…</div>
-            ) : (content[tab] ?? []).length === 0 ? (
+            ) : tabContent.length === 0 ? (
               <div className={styles.placeholderNote}>
                 No {EMPTY_NOTES[tab].label} installed. Find some on the Discover page, or drop
                 files into the modpack&apos;s <code>{EMPTY_NOTES[tab].folder}</code> folder.
               </div>
             ) : (
-              <ul className={styles.modList}>
-                {(content[tab] ?? []).map((item) => {
+              <>
+                <div className={styles.contentToolbar}>
+                  <input
+                    type="text"
+                    className={styles.searchInput}
+                    placeholder={`Search ${EMPTY_NOTES[tab].label}…`}
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                  />
+                  {tabUpdateCount > 0 && (
+                    <button
+                      type="button"
+                      className={styles.updateAllButton}
+                      disabled={bulkUpdating || updatingFile !== null}
+                      onClick={() => void updateAll(tab)}
+                    >
+                      {bulkUpdating ? 'Updating…' : `Update all (${tabUpdateCount})`}
+                    </button>
+                  )}
+                </div>
+                {visibleContent.length === 0 ? (
+                  <div className={styles.placeholderNote}>No matches for “{search}”.</div>
+                ) : (
+                  <ul className={styles.modList}>
+                    {visibleContent.map((item) => {
                   const update = updates[tab]?.[item.fileName]
                   return (
                   <li key={item.fileName} className={styles.modRow}>
@@ -451,7 +541,9 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
                   </li>
                   )
                 })}
-              </ul>
+                  </ul>
+                )}
+              </>
             )}
           </>
         )}
@@ -509,7 +601,11 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
               <select
                 className={styles.input}
                 value={gameVersion}
-                onChange={(e) => setGameVersion(e.target.value)}
+                onChange={(e) => {
+                  setGameVersion(e.target.value)
+                  // A pinned loader build rarely matches a different MC version.
+                  setLoaderVersion('')
+                }}
                 disabled={localPack === null}
               >
                 {gameVersion === '' && <option value="">— not assigned —</option>}
@@ -523,6 +619,45 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
                 ))}
               </select>
             </label>
+            <label className={styles.field}>
+              <span className={styles.fieldLabel}>Loader</span>
+              <select
+                className={styles.input}
+                value={loader}
+                onChange={(e) => {
+                  setLoader(e.target.value as ModLoader)
+                  setLoaderVersion('')
+                }}
+                disabled={localPack === null}
+              >
+                <option value="vanilla">Vanilla</option>
+                <option value="fabric">Fabric</option>
+                <option value="forge">Forge</option>
+                <option value="neoforge">NeoForge</option>
+                <option value="quilt">Quilt</option>
+              </select>
+            </label>
+            {loader !== 'vanilla' && (
+              <label className={styles.field}>
+                <span className={styles.fieldLabel}>Loader version</span>
+                <select
+                  className={styles.input}
+                  value={loaderVersion}
+                  onChange={(e) => setLoaderVersion(e.target.value)}
+                  disabled={localPack === null || loaderVersionsLoading}
+                >
+                  <option value="">{loaderVersionsLoading ? 'Loading…' : 'Latest'}</option>
+                  {loaderVersion !== '' && !loaderVersions.includes(loaderVersion) && (
+                    <option value={loaderVersion}>{loaderVersion}</option>
+                  )}
+                  {loaderVersions.map((v) => (
+                    <option key={v} value={v}>
+                      {v}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
             <label className={styles.field}>
               <span className={styles.fieldLabel}>Java arguments</span>
               <input
@@ -542,7 +677,7 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
               >
                 {settingsSaved ? 'Saved ✓' : 'Save'}
               </button>
-              {localPack !== null && !confirmingDelete && (
+              {localPack !== null && (
                 <button
                   type="button"
                   className={styles.deleteButton}
@@ -553,33 +688,6 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
               )}
             </div>
             {settingsError !== null && <span className={styles.errorText}>{settingsError}</span>}
-
-            {localPack !== null && confirmingDelete && (
-              <div className={styles.dangerConfirm}>
-                <span className={styles.dangerWarning}>
-                  Permanently deletes &quot;{localPack.name}&quot; with all its worlds, mods and
-                  settings. This cannot be undone.
-                </span>
-                <div className={styles.dangerButtons}>
-                  <button
-                    type="button"
-                    className={styles.cancelButton}
-                    disabled={deleting}
-                    onClick={() => setConfirmingDelete(false)}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    className={styles.deleteButton}
-                    disabled={deleting}
-                    onClick={() => void confirmDelete()}
-                  >
-                    {deleting ? 'Deleting…' : 'Delete forever'}
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
         )}
 
@@ -588,7 +696,49 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
             {packLogs.length === 0 ? 'No output yet. Press Play to see logs.' : packLogs.join('\n')}
           </pre>
         )}
+        </div>
       </div>
+
+      {localPack !== null && confirmingDelete && (
+        <div
+          className={styles.confirmOverlay}
+          onClick={(e) => {
+            e.stopPropagation()
+            if (!deleting) setConfirmingDelete(false)
+          }}
+        >
+          <div
+            className={styles.confirmBox}
+            role="alertdialog"
+            aria-label="Delete instance"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className={styles.confirmTitle}>Delete &quot;{localPack.name}&quot;?</h3>
+            <p className={styles.dangerWarning}>
+              Permanently deletes this instance with all its worlds, mods and settings. This cannot
+              be undone.
+            </p>
+            <div className={styles.dangerButtons}>
+              <button
+                type="button"
+                className={styles.cancelButton}
+                disabled={deleting}
+                onClick={() => setConfirmingDelete(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className={styles.deleteButton}
+                disabled={deleting}
+                onClick={() => void confirmDelete()}
+              >
+                {deleting ? 'Deleting…' : 'Delete forever'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
