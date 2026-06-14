@@ -50,6 +50,8 @@ export interface AppSettings {
   dataDirIsDefault: boolean
   /** Absolute path to a user-picked Java executable; null uses bundled/system Java. */
   javaPath: string | null
+  /** Force the dedicated GPU for the game on hybrid-graphics machines. */
+  preferDedicatedGpu: boolean
 }
 
 export type InstallPhase =

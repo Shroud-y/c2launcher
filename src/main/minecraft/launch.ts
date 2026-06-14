@@ -3,6 +3,8 @@ import { delimiter, join } from 'path'
 import { mkdir } from 'fs/promises'
 import { app } from 'electron'
 import { clientJarPath } from './install'
+import { setHighPerformanceGpu } from './gpu'
+import { getPreferDedicatedGpu } from '../settings/store'
 import { rulesAllow, type ArgumentEntry, type VersionMeta } from './versionMeta'
 import type { MinecraftSession } from '../auth/microsoftAuth'
 
@@ -86,6 +88,10 @@ export function buildLaunchArgs(ctx: LaunchContext): string[] {
 export async function launchGame(ctx: LaunchContext): Promise<ChildProcess> {
   await mkdir(ctx.gameDir, { recursive: true })
   await mkdir(join(ctx.minecraftRoot, 'natives', ctx.meta.id), { recursive: true })
+
+  // Pin the dedicated GPU for this exact Java exe before it starts, so the
+  // GPU choice follows the runtime the launcher actually spawns.
+  if (getPreferDedicatedGpu()) await setHighPerformanceGpu(ctx.javaPath)
 
   const args = buildLaunchArgs(ctx)
   // Never log args: they contain the access token.

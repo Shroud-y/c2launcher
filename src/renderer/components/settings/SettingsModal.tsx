@@ -32,6 +32,11 @@ export default function SettingsModal(): JSX.Element {
     setSettings(await window.api.settings.clearJava())
   }
 
+  async function toggleGpuPref(): Promise<void> {
+    if (settings === null) return
+    setSettings(await window.api.settings.setGpuPref(!settings.preferDedicatedGpu))
+  }
+
   return (
     <div className={styles.overlay} onClick={closeSettings}>
       <div
@@ -63,6 +68,29 @@ export default function SettingsModal(): JSX.Element {
             )}
           </div>
           {javaError !== null && <span className={styles.error}>{javaError}</span>}
+        </div>
+
+        <div className={styles.field}>
+          <div className={styles.toggleHeader}>
+            <span className={styles.fieldLabel}>Prefer dedicated GPU</span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={settings?.preferDedicatedGpu ?? true}
+              aria-label="Prefer dedicated GPU"
+              className={
+                settings?.preferDedicatedGpu !== false
+                  ? `${styles.switch} ${styles.switchOn}`
+                  : styles.switch
+              }
+              disabled={settings === null}
+              onClick={() => void toggleGpuPref()}
+            />
+          </div>
+          <span className={styles.hint}>
+            On hybrid-graphics laptops, tells Windows to run the game on the high-performance GPU
+            instead of the integrated one. Applied on next launch.
+          </span>
         </div>
 
         <div className={styles.field}>

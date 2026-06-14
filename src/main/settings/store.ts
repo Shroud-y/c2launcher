@@ -16,6 +16,8 @@ interface ConfigSchema {
   dataDirOverride: string | null
   /** User-chosen Java executable; null uses the bundled/system Java. */
   javaPath: string | null
+  /** Force the dedicated GPU for the game on hybrid-graphics machines. */
+  preferDedicatedGpu: boolean
 }
 
 let store: Store<ConfigSchema> | null = null
@@ -24,7 +26,7 @@ function getStore(): Store<ConfigSchema> {
   if (store === null) {
     store = new Store<ConfigSchema>({
       name: 'config',
-      defaults: { dataDirOverride: null, javaPath: null }
+      defaults: { dataDirOverride: null, javaPath: null, preferDedicatedGpu: true }
     })
   }
   return store
@@ -52,10 +54,19 @@ export function setJavaOverride(path: string | null): void {
   getStore().set('javaPath', path)
 }
 
+export function getPreferDedicatedGpu(): boolean {
+  return getStore().get('preferDedicatedGpu')
+}
+
+export function setPreferDedicatedGpu(enabled: boolean): void {
+  getStore().set('preferDedicatedGpu', enabled)
+}
+
 export function getSettings(): AppSettings {
   return {
     dataDir: getDataDir(),
     dataDirIsDefault: isDataDirDefault(),
-    javaPath: getJavaOverride()
+    javaPath: getJavaOverride(),
+    preferDedicatedGpu: getPreferDedicatedGpu()
   }
 }

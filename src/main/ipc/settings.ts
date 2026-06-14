@@ -8,7 +8,8 @@ import {
   getDataDir,
   getSettings,
   setDataDirOverride,
-  setJavaOverride
+  setJavaOverride,
+  setPreferDedicatedGpu
 } from '../settings/store'
 
 const execFileAsync = promisify(execFile)
@@ -67,6 +68,11 @@ export function registerSettingsIpc(): void {
     // clean way to repoint everything. Existing instances stay where they are.
     app.relaunch()
     app.exit(0)
+  })
+
+  ipcMain.handle(IpcChannel.SettingsSetGpuPref, (_e, enabled: boolean): AppSettings => {
+    setPreferDedicatedGpu(enabled)
+    return getSettings()
   })
 
   ipcMain.handle(IpcChannel.SettingsResetDataDir, (): void => {

@@ -31,6 +31,7 @@ export enum IpcChannel {
   SettingsClearJava = 'settings:clear-java',
   SettingsChooseDataDir = 'settings:choose-data-dir',
   SettingsResetDataDir = 'settings:reset-data-dir',
+  SettingsSetGpuPref = 'settings:set-gpu-pref',
   AuthLogin = 'auth:login',
   AuthLogout = 'auth:logout',
   AuthGetProfile = 'auth:get-profile',

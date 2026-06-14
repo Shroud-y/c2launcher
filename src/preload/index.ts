@@ -99,7 +99,9 @@ const api = {
     chooseJava: (): Promise<AppSettings> => ipcRenderer.invoke(IpcChannel.SettingsChooseJava),
     clearJava: (): Promise<AppSettings> => ipcRenderer.invoke(IpcChannel.SettingsClearJava),
     chooseDataDir: (): Promise<void> => ipcRenderer.invoke(IpcChannel.SettingsChooseDataDir),
-    resetDataDir: (): Promise<void> => ipcRenderer.invoke(IpcChannel.SettingsResetDataDir)
+    resetDataDir: (): Promise<void> => ipcRenderer.invoke(IpcChannel.SettingsResetDataDir),
+    setGpuPref: (enabled: boolean): Promise<AppSettings> =>
+      ipcRenderer.invoke(IpcChannel.SettingsSetGpuPref, enabled)
   }
 }
 
