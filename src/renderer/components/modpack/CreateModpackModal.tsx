@@ -18,6 +18,7 @@ export default function CreateModpackModal(): JSX.Element {
   const closeCreate = useModalStore((s) => s.closeCreate)
   const openModpack = useModalStore((s) => s.openModpack)
   const create = useModpackStore((s) => s.create)
+  const importMrpack = useModpackStore((s) => s.importMrpack)
 
   const [name, setName] = useState('')
   const [loader, setLoader] = useState<ModLoader>('vanilla')
@@ -76,6 +77,25 @@ export default function CreateModpackModal(): JSX.Element {
     }
   }, [gameVersion])
 
+  async function importPack(): Promise<void> {
+    if (submitting) return
+    setSubmitting(true)
+    setError(null)
+    try {
+      const pack = await importMrpack()
+      if (pack === null) {
+        // Dialog cancelled — leave the form as-is.
+        setSubmitting(false)
+        return
+      }
+      closeCreate()
+      openModpack(pack.id)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to import modpack')
+      setSubmitting(false)
+    }
+  }
+
   async function submit(): Promise<void> {
     if (gameVersion === '' || submitting || checking) return
     setSubmitting(true)
@@ -103,16 +123,27 @@ export default function CreateModpackModal(): JSX.Element {
         </button>
         <h2 className={styles.title}>New modpack</h2>
 
-        <label className={styles.field}>
+        <div className={styles.field}>
           <span className={styles.fieldLabel}>Name</span>
-          <input
-            className={styles.input}
-            value={name}
-            placeholder="Unnamed modpack"
-            onChange={(e) => setName(e.target.value)}
-            autoFocus
-          />
-        </label>
+          <div className={styles.nameRow}>
+            <input
+              className={styles.input}
+              value={name}
+              placeholder="Unnamed modpack"
+              onChange={(e) => setName(e.target.value)}
+              autoFocus
+            />
+            <button
+              type="button"
+              className={styles.importButton}
+              disabled={submitting}
+              title="Import"
+              onClick={() => void importPack()}
+            >
+              Import
+            </button>
+          </div>
+        </div>
 
         <div className={styles.field}>
           <span className={styles.fieldLabel}>Loader</span>

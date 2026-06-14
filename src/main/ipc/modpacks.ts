@@ -27,7 +27,7 @@ import {
   minecraftRoot,
   updateModpack
 } from '../modpacks/store'
-import { installModrinthPack } from '../modpacks/modrinthInstall'
+import { installModrinthPack, installMrpackFromFile } from '../modpacks/modrinthInstall'
 import {
   checkContentUpdates,
   installContentFromModrinth,
@@ -338,6 +338,44 @@ export function registerModpackIpc(): void {
       } catch (err) {
         if (packId !== null) {
           const message = err instanceof Error ? err.message : 'Install failed'
+          sendProgress({ modpackId: packId, phase: 'error', percent: 0, message })
+        }
+        throw err
+      } finally {
+        if (packId !== null) busy.delete(packId)
+      }
+    }
+  )
+
+  ipcMain.handle(
+    IpcChannel.ModpackImportMrpack,
+    async (event): Promise<Modpack | null> => {
+      const win = BrowserWindow.fromWebContents(event.sender)
+      const options = {
+        title: 'Import modpack',
+        properties: ['openFile' as const],
+        filters: [{ name: 'Modrinth modpack', extensions: ['mrpack'] }]
+      }
+      const { canceled, filePaths } =
+        win !== null ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options)
+      const filePath = filePaths[0]
+      if (canceled || filePath === undefined) return null
+
+      const buffer = await readFile(filePath)
+      let packId: string | null = null
+      try {
+        const pack = await installMrpackFromFile(buffer, (p, percent, message) => {
+          if (packId === null) {
+            packId = p.id
+            busy.add(p.id)
+          }
+          sendProgress({ modpackId: p.id, phase: 'pack', percent: Math.round(percent), message })
+        })
+        sendProgress({ modpackId: pack.id, phase: 'done', percent: 100, message: 'Installed' })
+        return pack
+      } catch (err) {
+        if (packId !== null) {
+          const message = err instanceof Error ? err.message : 'Import failed'
           sendProgress({ modpackId: packId, phase: 'error', percent: 0, message })
         }
         throw err

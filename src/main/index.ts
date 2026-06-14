@@ -1,10 +1,12 @@
 import { app, BrowserWindow, shell } from 'electron'
 import { join } from 'path'
+import icon from '../../resources/icon.png?asset'
 import { registerWindowIpc } from './ipc/window'
 import { registerAuthIpc } from './ipc/auth'
 import { registerModpackIpc } from './ipc/modpacks'
 import { registerSettingsIpc } from './ipc/settings'
 import { registerDiscoverIpc } from './ipc/discover'
+import { initAutoUpdater } from './updater'
 
 function createWindow(): void {
   const win = new BrowserWindow({
@@ -14,6 +16,7 @@ function createWindow(): void {
     minHeight: 600,
     frame: false,
     backgroundColor: '#0f1117',
+    ...(process.platform === 'linux' ? { icon } : {}),
     show: false,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -44,6 +47,7 @@ app.whenReady().then(() => {
   registerSettingsIpc()
   registerDiscoverIpc()
   createWindow()
+  initAutoUpdater()
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

@@ -1,6 +1,6 @@
 import { createHash } from 'crypto'
 import { createReadStream } from 'fs'
-import { readdir, rename, rm } from 'fs/promises'
+import { readdir, rename, rm, stat } from 'fs/promises'
 import { join } from 'path'
 import {
   getLatestVersionsByHashes,
@@ -84,6 +84,25 @@ function sha1OfFile(path: string): Promise<string> {
 }
 
 /**
+ * sha1 by path, memoized on size+mtime so a content folder is hashed once
+ * rather than re-streamed by every listing/update check. Hashing whole
+ * .jars off disk is the hot path here: a single modpack open used to hash
+ * every file twice (enrich, then update check). The signature guard means
+ * an edited/replaced file (different size or mtime) re-hashes automatically.
+ */
+const fileHashCache = new Map<string, { signature: string; hash: string }>()
+
+async function sha1OfFileCached(path: string): Promise<string> {
+  const { size, mtimeMs } = await stat(path)
+  const signature = `${size}:${mtimeMs}`
+  const cached = fileHashCache.get(path)
+  if (cached !== undefined && cached.signature === signature) return cached.hash
+  const hash = await sha1OfFile(path)
+  fileHashCache.set(path, { signature, hash })
+  return hash
+}
+
+/**
  * Fills name/version/icon from Modrinth by file hash. Best-effort:
  * any failure (offline, rate limit) leaves the plain file names.
  */
@@ -92,7 +111,7 @@ async function enrichFromModrinth(
   items: InstalledContent[]
 ): Promise<InstalledContent[]> {
   try {
-    const hashes = await Promise.all(items.map((i) => sha1OfFile(join(dir, i.fileName))))
+    const hashes = await Promise.all(items.map((i) => sha1OfFileCached(join(dir, i.fileName))))
     const versionByHash = await getVersionsByHashes(hashes)
     const projectIds = [...new Set([...versionByHash.values()].map((m) => m.projectId))]
     const projects = await getProjectsByIds(projectIds)
@@ -201,7 +220,7 @@ export async function checkContentUpdates(
   const files = entries.filter((f) => matchesCategory(f, category))
   if (files.length === 0) return []
 
-  const hashes = await Promise.all(files.map((f) => sha1OfFile(join(dir, f))))
+  const hashes = await Promise.all(files.map((f) => sha1OfFileCached(join(dir, f))))
   const latest = await getLatestVersionsByHashes(hashes, versionFilterFor(category, pack))
 
   const updates: ContentUpdate[] = []

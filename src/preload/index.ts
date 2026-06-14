@@ -52,6 +52,8 @@ const api = {
     remove: (id: string): Promise<void> => ipcRenderer.invoke(IpcChannel.ModpackDelete, id),
     installModrinthPack: (projectId: string, versionId?: string): Promise<Modpack> =>
       ipcRenderer.invoke(IpcChannel.ModpackInstallModrinth, projectId, versionId),
+    importMrpack: (): Promise<Modpack | null> =>
+      ipcRenderer.invoke(IpcChannel.ModpackImportMrpack),
     installContent: (params: InstallContentParams): Promise<InstalledContent> =>
       ipcRenderer.invoke(IpcChannel.ModpackInstallMod, params),
     content: (id: string, category: InstallableCategory): Promise<InstalledContent[]> =>

@@ -1,0 +1,48 @@
+# electron-builder packaging config. Consumed by `pnpm dist` after
+# `electron-vite build` emits the compiled app into out/.
+#
+# App icons are not wired yet — drop build/icon.ico (Windows, 256×256+),
+# build/icon.png (Linux, 512×512) and build/icon.icns (macOS) and add the
+# matching `icon:` keys under win/linux/mac to brand the installers. Until
+# then electron-builder falls back to the default Electron icon.
+appId: com.c2launcher.app
+productName: C² Launcher
+copyright: Copyright © 2026 C² contributors
+
+directories:
+  output: dist
+  buildResources: build
+
+# Ship only the compiled output and the runtime manifest; sources, mockups
+# and dev config stay out of the package.
+files:
+  - out/**/*
+  - package.json
+
+# electron-updater reads this to discover new releases. Point it at the
+# repository that hosts the published installers (GitHub Releases).
+publish:
+  provider: github
+  owner: Shroud-y
+  repo: c2launcher
+
+win:
+  icon: build/icon.ico
+  target:
+    - target: nsis
+      arch:
+        - x64
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  deleteAppDataOnUninstall: false
+
+linux:
+  icon: build/icon.png
+  category: Game
+  maintainer: C² contributors
+  target:
+    - AppImage
+    - deb

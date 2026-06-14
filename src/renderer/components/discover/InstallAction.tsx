@@ -57,15 +57,13 @@ interface InstallActionProps {
 export default function InstallAction({ result }: InstallActionProps): JSX.Element {
   const category = useDiscoverStore((s) => s.category)
   const installing = useDiscoverStore((s) => s.installing[result.id] === true)
-  // Modpacks lock after install (they spawn an instance). Other content
-  // may go into several instances, so it only locks in the + button flow
-  // where a single target instance is fixed and already has this project.
+  // Content locks to "Installed" only in the + button flow, where a single
+  // target instance is fixed and already has this project. Modpacks never
+  // lock — each install spawns a fresh instance, so re-installing is valid.
   const installedInTarget = useDiscoverStore(
     (s) => s.installTarget !== null && s.installedInTarget[result.id] !== undefined
   )
-  const installed =
-    (useDiscoverStore((s) => s.installed[result.id] === true) && category === 'modpacks') ||
-    (installedInTarget && category !== 'modpacks')
+  const installed = installedInTarget && category !== 'modpacks'
   const installPack = useDiscoverStore((s) => s.installPack)
   const installContent = useDiscoverStore((s) => s.installContent)
   const installTarget = useDiscoverStore((s) => s.installTarget)

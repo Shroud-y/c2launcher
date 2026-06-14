@@ -3,8 +3,28 @@ import { mkdir, writeFile } from 'fs/promises'
 import { dirname, join } from 'path'
 import { getModrinthVersion, modrinthProvider } from '../discover/modrinth'
 import { downloadAll, type DownloadTask } from '../minecraft/install'
-import { createModpack, deleteModpack, instanceDirFor } from './store'
+import { createModpack, deleteModpack, instanceDirFor, updateModpack } from './store'
 import type { ModLoader, Modpack } from '@shared/types'
+
+/**
+ * Fetches a project's Modrinth icon and returns it as a data URL so the
+ * instance shows the same icon as the modpack listing. Best-effort:
+ * returns null on any failure (offline, no icon, oversized).
+ */
+async function fetchIconDataUrl(iconUrl: string | null): Promise<string | null> {
+  if (iconUrl === null || iconUrl === '') return null
+  try {
+    const res = await fetch(iconUrl)
+    if (!res.ok) return null
+    const buffer = Buffer.from(await res.arrayBuffer())
+    // Icons live inline in the registry JSON — keep them small.
+    if (buffer.byteLength > 1024 * 1024) return null
+    const type = res.headers.get('content-type') ?? 'image/png'
+    return `data:${type};base64,${buffer.toString('base64')}`
+  } catch {
+    return null
+  }
+}
 
 /**
  * Modpack install from Modrinth: download the .mrpack of the latest
@@ -76,8 +96,37 @@ export async function installModrinthPack(
 
   const res = await fetch(packFile.url)
   if (!res.ok) throw new Error(`Modpack download failed (${res.status})`)
-  const zip = new AdmZip(Buffer.from(await res.arrayBuffer()))
+  return installPackFromZip(new AdmZip(Buffer.from(await res.arrayBuffer())), report, projectId)
+}
 
+/**
+ * Installs a modpack from a local .mrpack file already on disk. Same flow
+ * as the Modrinth download path, minus the listing icon (there's no
+ * project to fetch one from).
+ */
+export async function installMrpackFromFile(
+  buffer: Buffer,
+  report: PackInstallReporter
+): Promise<Modpack> {
+  let zip: AdmZip
+  try {
+    zip = new AdmZip(buffer)
+  } catch {
+    throw new Error('Not a valid .mrpack file')
+  }
+  return installPackFromZip(zip, report, null)
+}
+
+/**
+ * Shared install core: parse the index, create the instance, download
+ * every file and unpack overrides. `projectId` (when given) is used only
+ * to fetch a matching listing icon.
+ */
+async function installPackFromZip(
+  zip: AdmZip,
+  report: PackInstallReporter,
+  projectId: string | null
+): Promise<Modpack> {
   const indexEntry = zip.getEntry('modrinth.index.json')
   if (indexEntry === null) throw new Error('Invalid mrpack: missing modrinth.index.json')
   const index = JSON.parse(indexEntry.getData().toString('utf-8')) as MrpackIndex
@@ -96,6 +145,15 @@ export async function installModrinthPack(
   const instanceDir = instanceDirFor(pack)
 
   try {
+    if (projectId !== null) {
+      report(pack, 3, 'Fetching icon')
+      // Match the instance icon to the Modrinth listing. Best-effort —
+      // a missing icon just leaves the default glyph.
+      const project = await modrinthProvider.getProject(projectId).catch(() => null)
+      const icon = await fetchIconDataUrl(project?.iconUrl ?? null)
+      if (icon !== null) updateModpack(pack.id, { icon })
+    }
+
     report(pack, 5, 'Preparing files')
 
     const tasks: DownloadTask[] = []

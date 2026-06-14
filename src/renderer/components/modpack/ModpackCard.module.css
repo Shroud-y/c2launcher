@@ -43,6 +43,12 @@
   object-fit: cover;
 }
 
+/* A custom icon replaces the tinted glyph — drop the accent background so
+   transparent parts of the image don't show through as green. */
+.icon:has(.iconImage) {
+  background: var(--bg-hover);
+}
+
 .tintTeal {
   background: var(--accent);
 }

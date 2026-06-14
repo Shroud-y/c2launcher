@@ -95,10 +95,13 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
       .catch(() => setModsError(`Could not read the ${EMPTY_NOTES[category].folder} folder`))
   }, [tab, content, modpackId])
 
-  // Once a content tab is listed, ask Modrinth (by file hash) whether
-  // newer compatible versions exist. Best-effort: offline shows no badges.
+  // Ask Modrinth (by file hash) whether newer compatible versions exist.
+  // Runs in parallel with the content listing above — the main process
+  // reads the folder itself and shares a hash cache, so the "Update all"
+  // button no longer waits for the list to finish first. Best-effort:
+  // offline shows no badges.
   useEffect(() => {
-    if (!isContentTab(tab) || content[tab] === undefined || updates[tab] !== undefined) return
+    if (!isContentTab(tab) || updates[tab] !== undefined) return
     const category = tab
     window.api.modpack
       .contentUpdates(modpackId, category)
@@ -110,7 +113,7 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
       .catch(() => {
         setUpdates((all) => ({ ...all, [category]: {} }))
       })
-  }, [tab, content, updates, modpackId])
+  }, [tab, updates, modpackId])
 
   useEffect(() => {
     if (tab !== 'settings' || versions.length > 0) return
