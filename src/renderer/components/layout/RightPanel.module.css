@@ -34,7 +34,7 @@
    middle one at the vertical center, the outer two equidistant from edges. */
 .dividers {
   position: absolute;
-  top: 44px;
+  top: 37px;
   bottom: 0;
   left: 14px;
   right: 14px;
