@@ -20,6 +20,36 @@
   flex: 1;
 }
 
+.updateButton {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--icon-radius);
+  background: #2ea043;
+  color: #ffffff;
+  box-shadow: 0 0 10px rgba(46, 160, 67, 0.5);
+  transition: background 0.15s, filter 0.15s;
+}
+
+.updateButton:hover:enabled {
+  filter: brightness(1.1);
+}
+
+.updateButton:disabled {
+  cursor: default;
+  opacity: 0.85;
+}
+
+.updateProgress {
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+}
+
 .recentWrap {
   position: relative;
   display: flex;

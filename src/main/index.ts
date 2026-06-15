@@ -6,6 +6,7 @@ import { registerAuthIpc } from './ipc/auth'
 import { registerModpackIpc } from './ipc/modpacks'
 import { registerSettingsIpc } from './ipc/settings'
 import { registerDiscoverIpc } from './ipc/discover'
+import { registerUpdateIpc } from './ipc/update'
 import { initAutoUpdater } from './updater'
 
 function createWindow(): void {
@@ -46,6 +47,7 @@ app.whenReady().then(() => {
   registerModpackIpc()
   registerSettingsIpc()
   registerDiscoverIpc()
+  registerUpdateIpc()
   createWindow()
   initAutoUpdater()
 

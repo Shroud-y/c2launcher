@@ -102,6 +102,13 @@ const api = {
     resetDataDir: (): Promise<void> => ipcRenderer.invoke(IpcChannel.SettingsResetDataDir),
     setGpuPref: (enabled: boolean): Promise<AppSettings> =>
       ipcRenderer.invoke(IpcChannel.SettingsSetGpuPref, enabled)
+  },
+  updater: {
+    install: (): Promise<void> => ipcRenderer.invoke(IpcChannel.UpdateInstall),
+    onAvailable: (cb: (info: { version: string }) => void): (() => void) =>
+      subscribe(IpcChannel.UpdateAvailable, cb),
+    onProgress: (cb: (info: { percent: number }) => void): (() => void) =>
+      subscribe(IpcChannel.UpdateProgress, cb)
   }
 }
 

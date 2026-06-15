@@ -14,13 +14,16 @@
 }
 
 .github {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  align-self: center;
   width: 38px;
   height: 38px;
-  margin-top: 16px;
   border-radius: 10px;
   color: var(--text-muted);
   transition: background 0.15s, color 0.15s;
@@ -35,7 +38,7 @@
    middle one at the vertical center, the outer two equidistant from edges. */
 .dividers {
   position: absolute;
-  top: 37px;
+  top: 0px;
   bottom: 0;
   left: 14px;
   right: 14px;
@@ -68,6 +71,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
+  min-height: 64px;
 }
 
 .accountText {
@@ -93,7 +97,9 @@
 .loggedOut {
   display: flex;
   flex-direction: column;
+  justify-content: center;
   gap: 10px;
+  min-height: 64px;
 }
 
 .accountHint {

@@ -1,5 +1,6 @@
 import { useLocation } from 'react-router-dom'
 import { CloseIcon, MaximizeIcon, MinimizeIcon } from '../common/Icons'
+import logoIcon from '../../assets/icon.png'
 import styles from './TopBar.module.css'
 
 const PAGE_TITLES: Record<string, string> = {
@@ -14,9 +15,7 @@ export default function TopBar(): JSX.Element {
   return (
     <header className={styles.topBar}>
       <div className={styles.logoSlot}>
-        <span className={styles.logo}>
-          C<sup>2</sup>
-        </span>
+        <img src={logoIcon} alt="C² Launcher" className={styles.logo} />
       </div>
       <div className={styles.separator} />
       <h1 className={styles.title}>{title}</h1>

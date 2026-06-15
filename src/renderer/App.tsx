@@ -12,6 +12,7 @@ import Discover from './pages/Discover'
 import { useModalStore } from './store/modalStore'
 import { useAuthStore } from './store/authStore'
 import { useModpackStore } from './store/modpackStore'
+import { useUpdateStore } from './store/updateStore'
 import styles from './App.module.css'
 
 export default function App(): JSX.Element {
@@ -27,6 +28,15 @@ export default function App(): JSX.Element {
     startEventSubscriptions()
     void initAuth()
     void loadModpacks()
+
+    const setAvailable = useUpdateStore.getState().setAvailable
+    const setProgress = useUpdateStore.getState().setProgress
+    const offAvailable = window.api.updater.onAvailable((info) => setAvailable(info.version))
+    const offProgress = window.api.updater.onProgress((info) => setProgress(info.percent))
+    return () => {
+      offAvailable()
+      offProgress()
+    }
   }, [initAuth, loadModpacks, startEventSubscriptions])
 
   return (

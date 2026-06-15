@@ -1,0 +1,46 @@
+name: Release
+
+# Build installers and publish them to a GitHub Release whenever a version
+# tag is pushed (e.g. `git tag v0.1.1 && git push origin v0.1.1`).
+# electron-updater clients read the uploaded latest*.yml to find the update.
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build and publish
+        # electron-builder picks the host OS targets from electron-builder.yml
+        # (Windows -> nsis, Linux -> AppImage + deb) and uploads to the release
+        # named after the tag. GH_TOKEN authenticates the upload.
+        run: pnpm dist --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

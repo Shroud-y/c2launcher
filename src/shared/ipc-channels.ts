@@ -41,9 +41,13 @@ export enum IpcChannel {
   WindowMinimize = 'window:minimize',
   WindowMaximize = 'window:maximize',
   WindowClose = 'window:close',
+  UpdateInstall = 'update:install',
 
   // Main → renderer events
   ModpackInstallProgress = 'modpack:install-progress',
   ModpackGameLog = 'modpack:game-log',
-  ModpackGameState = 'modpack:game-state'
+  ModpackGameState = 'modpack:game-state',
+  UpdateAvailable = 'update:available',
+  UpdateProgress = 'update:progress',
+  UpdateError = 'update:error'
 }

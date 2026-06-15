@@ -40,7 +40,9 @@ export const useAuthStore = create<AuthState>((set) => ({
       const profile = await window.api.auth.login()
       set({ profile, status: 'idle' })
     } catch (err) {
-      set({ status: 'idle', error: toMessage(err) })
+      const message = toMessage(err)
+      // Closing the login window is a user cancel, not an error worth showing.
+      set({ status: 'idle', error: message === 'Login window was closed' ? null : message })
     }
   },
 

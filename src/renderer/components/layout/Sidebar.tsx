@@ -1,10 +1,19 @@
 import { useLocation, useNavigate } from 'react-router-dom'
 import IconButton from '../common/IconButton'
-import { CompassIcon, GearIcon, HomeIcon, LogoutIcon, PlusIcon, WindIcon } from '../common/Icons'
+import {
+  CompassIcon,
+  DownloadIcon,
+  GearIcon,
+  HomeIcon,
+  LogoutIcon,
+  PlusIcon,
+  WindIcon
+} from '../common/Icons'
 import { useAuthStore } from '../../store/authStore'
 import { useDiscoverStore } from '../../store/discoverStore'
 import { useModalStore } from '../../store/modalStore'
 import { useModpackStore } from '../../store/modpackStore'
+import { useUpdateStore } from '../../store/updateStore'
 import type { IconTint } from '@shared/types'
 import styles from './Sidebar.module.css'
 
@@ -24,6 +33,11 @@ export default function Sidebar(): JSX.Element {
   const modpacks = useModpackStore((s) => s.modpacks)
   const gameStates = useModpackStore((s) => s.gameStates)
   const setInstallTarget = useDiscoverStore((s) => s.setInstallTarget)
+  const updateAvailable = useUpdateStore((s) => s.available)
+  const updateVersion = useUpdateStore((s) => s.version)
+  const downloading = useUpdateStore((s) => s.downloading)
+  const percent = useUpdateStore((s) => s.percent)
+  const installUpdate = useUpdateStore((s) => s.install)
 
   const recent = [...modpacks]
     .filter((m) => m.lastPlayedAt !== null)
@@ -78,6 +92,24 @@ export default function Sidebar(): JSX.Element {
       </IconButton>
 
       <div className={styles.spacer} />
+
+      {updateAvailable && (
+        <button
+          type="button"
+          className={styles.updateButton}
+          title={
+            downloading
+              ? `Downloading update… ${percent}%`
+              : `Update available${updateVersion !== null ? ` (v${updateVersion})` : ''} — click to install`
+          }
+          aria-label="Install update"
+          onClick={installUpdate}
+          disabled={downloading}
+        >
+          <DownloadIcon />
+          {downloading && <span className={styles.updateProgress}>{percent}%</span>}
+        </button>
+      )}
 
       <IconButton label="Settings" onClick={openSettings}>
         <GearIcon />
