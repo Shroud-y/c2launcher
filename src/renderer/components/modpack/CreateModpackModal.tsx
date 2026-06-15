@@ -159,7 +159,7 @@ export default function CreateModpackModal(): JSX.Element {
                   title={unavailable ? `No ${l.label} build for Minecraft ${gameVersion}` : undefined}
                   onClick={() => setLoader(l.id)}
                 >
-                  <LoaderIcon loader={l.id} size={15} />
+                  <LoaderIcon loader={l.id} size={14} />
                   {l.label}
                 </button>
               )

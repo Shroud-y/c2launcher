@@ -2,8 +2,8 @@
   position: relative;
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 14px;
+  gap: 18px;
+  padding: 16px;
   border-radius: var(--card-radius);
   background: var(--bg-secondary);
   text-align: left;
@@ -29,8 +29,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 56px;
-  height: 56px;
+  width: 64px;
+  height: 64px;
   border-radius: var(--icon-radius);
   color: var(--text-on-accent);
   flex-shrink: 0;
@@ -69,7 +69,7 @@
 }
 
 .name {
-  font-size: 17px;
+  font-size: 18px;
   font-weight: 700;
   color: var(--accent);
   overflow: hidden;
@@ -77,17 +77,25 @@
   white-space: nowrap;
 }
 
+/* Name color matches the icon tint at this position. */
+.card:has(.tintMint) .name {
+  color: var(--accent-mint);
+}
+
 .card:has(.tintLight) .name {
-  color: var(--text-primary);
+  color: var(--accent-light);
 }
 
 .subtitle {
-  font-size: 13px;
+  font-size: 14px;
   color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .emptyCard {
-  height: 84px;
+  height: 96px;
   border-radius: var(--card-radius);
   background: var(--bg-secondary);
   opacity: 0.45;

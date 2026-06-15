@@ -34,4 +34,10 @@
   padding: 24px 32px;
   background: var(--bg-primary);
   border-top-left-radius: 18px;
+  scrollbar-width: none; /* Firefox */
+}
+
+/* Hidden scrollbar — content still scrolls. */
+.content::-webkit-scrollbar {
+  display: none;
 }

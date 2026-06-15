@@ -36,15 +36,18 @@
 
 /* Three faint separators over the full panel height: space-around puts the
    middle one at the vertical center, the outer two equidistant from edges. */
+/* Top divider anchored to the same y as the Discover FilterSidebar's
+   border-top (panel pad 20 + account 64 + sidebar margin 28 = 112px), so the
+   top separator sits at the same height on both pages. */
 .dividers {
   position: absolute;
-  top: 0px;
-  bottom: 0;
+  top: 112px;
+  bottom: 112px;
   left: 14px;
   right: 14px;
   display: flex;
   flex-direction: column;
-  justify-content: space-around;
+  justify-content: space-between;
   pointer-events: none;
 }
 

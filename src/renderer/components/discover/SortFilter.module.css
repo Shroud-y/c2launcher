@@ -9,7 +9,8 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 14px;
+  height: 40px;
+  padding: 0 14px;
   border-radius: 10px;
   background: var(--bg-secondary);
   border: 1px solid var(--border);
@@ -19,12 +20,19 @@
 }
 
 /* Invisible native select stretched over the pill — keeps the mockup
-   look while the OS renders the option list. */
+   look while the OS renders the option list. color-scheme + option colors
+   force the native popup to match the dark launcher theme. */
 .select {
   position: absolute;
   inset: 0;
   opacity: 0;
   cursor: pointer;
+  color-scheme: dark;
+}
+
+.select option {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
 }
 
 .dropdown strong {

@@ -10,7 +10,7 @@
 
 .modal {
   position: relative;
-  width: 420px;
+  width: 500px;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -105,21 +105,24 @@
 
 .loaderRow {
   display: flex;
-  gap: 8px;
+  gap: 6px;
 }
 
 .loader,
 .loaderActive {
   flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 8px 0;
+  gap: 4px;
+  padding: 8px 4px;
   border-radius: 8px;
   border: 1px solid var(--border);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
   color: var(--text-muted);
 }
 

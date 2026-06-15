@@ -2,7 +2,7 @@ import { WindIcon } from '../common/Icons'
 import { formatSubtitle } from '../../data/format'
 import { useModalStore } from '../../store/modalStore'
 import { useModpackStore } from '../../store/modpackStore'
-import type { Modpack } from '@shared/types'
+import type { IconTint, Modpack } from '@shared/types'
 import styles from './ModpackCard.module.css'
 
 const TINT_CLASS = {
@@ -13,9 +13,11 @@ const TINT_CLASS = {
 
 interface ModpackCardProps {
   modpack: Modpack
+  /** Tint resolved from grid position; falls back to the pack's stored tint. */
+  tint?: IconTint
 }
 
-export default function ModpackCard({ modpack }: ModpackCardProps): JSX.Element {
+export default function ModpackCard({ modpack, tint = modpack.iconTint }: ModpackCardProps): JSX.Element {
   const openModpack = useModalStore((s) => s.openModpack)
   const progress = useModpackStore((s) => s.installProgress[modpack.id])
   const gameState = useModpackStore((s) => s.gameStates[modpack.id])
@@ -31,7 +33,7 @@ export default function ModpackCard({ modpack }: ModpackCardProps): JSX.Element 
   return (
     <button type="button" className={styles.card} onClick={() => openModpack(modpack.id)}>
       {isRunning && <span className={styles.runningDot} aria-hidden="true" />}
-      <span className={`${styles.icon} ${TINT_CLASS[modpack.iconTint]}`}>
+      <span className={`${styles.icon} ${TINT_CLASS[tint]}`}>
         {(modpack.icon ?? null) !== null ? (
           <img className={styles.iconImage} src={modpack.icon ?? ''} alt="" />
         ) : (

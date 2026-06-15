@@ -112,7 +112,7 @@ export default function Sidebar(): JSX.Element {
       )}
 
       <IconButton label="Settings" onClick={openSettings}>
-        <GearIcon />
+        <GearIcon size={20} />
       </IconButton>
       <IconButton label="Log out" danger onClick={() => void logout()}>
         <LogoutIcon />
