@@ -5,6 +5,7 @@
   "main": "out/main/index.js",
   "author": "C² contributors",
   "license": "MIT",
+  "packageManager": "pnpm@11.5.2",
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
