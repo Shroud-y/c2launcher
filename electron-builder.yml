@@ -25,6 +25,8 @@ publish:
   provider: github
   owner: Shroud-y
   repo: c2launcher
+  # Assets upload to a draft release; review and click Publish when ready.
+  releaseType: draft
 
 win:
   icon: build/icon.ico
