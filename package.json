@@ -1,6 +1,6 @@
 {
   "name": "c2-launcher",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "C² — open-source licensed Minecraft launcher",
   "main": "out/main/index.js",
   "author": "C² contributors",
