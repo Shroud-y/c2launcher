@@ -29,7 +29,9 @@ publish:
   releaseType: draft
 
 win:
-  icon: build/icon.ico
+  # No explicit icon: electron-builder generates a valid multi-size .ico from
+  # build/icon.png (1024×1024). A hand-made icon.ico with a single oversized
+  # image made NSIS fail with "invalid icon file size".
   target:
     - target: nsis
       arch:
