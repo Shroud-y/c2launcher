@@ -12,7 +12,7 @@
 .separator {
   width: 32px;
   height: 1px;
-  background: var(--border);
+  background: var(--text-primary);
   margin: 4px 0;
 }
 
@@ -29,7 +29,6 @@
   width: 44px;
   height: 44px;
   border-radius: var(--icon-radius);
-  background: #2ea043;
   color: #ffffff;
   box-shadow: 0 0 10px rgba(46, 160, 67, 0.5);
   transition: background 0.15s, filter 0.15s;
@@ -72,8 +71,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
+  width: 55px;
+  height: 55px;
   border-radius: var(--icon-radius);
   color: var(--text-on-accent);
   transition: filter 0.15s;

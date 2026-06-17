@@ -7,6 +7,7 @@
   justify-content: center;
   z-index: 200;
   cursor: default;
+  animation: pickerOverlayIn 0.18s ease;
 }
 
 .modal {
@@ -19,6 +20,27 @@
   border: 1px solid var(--border);
   border-radius: var(--card-radius);
   padding: 16px;
+  animation: pickerModalIn 0.18s ease;
+}
+
+@keyframes pickerOverlayIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes pickerModalIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .header {

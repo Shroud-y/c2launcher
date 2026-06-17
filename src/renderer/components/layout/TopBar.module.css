@@ -20,12 +20,13 @@
   height: 40px;
   border-radius: 50%;
   object-fit: cover;
+  transform: translate(4px, 4px);
 }
 
 .separator {
   width: 1px;
   height: 28px;
-  background: var(--border);
+  background: var(--text-primary);
   margin: 0 16px;
 }
 

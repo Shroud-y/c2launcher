@@ -185,6 +185,14 @@ export interface ProjectDetail {
   categories: string[]
   gameVersions: string[]
   loaders: string[]
+  gallery: GalleryImage[]
+}
+
+export interface GalleryImage {
+  url: string
+  title: string | null
+  description: string | null
+  featured: boolean
 }
 
 export interface ProjectVersionInfo {

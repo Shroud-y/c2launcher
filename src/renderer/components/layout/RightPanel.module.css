@@ -13,6 +13,18 @@
   border-radius: 16px;
 }
 
+/* Separates the Discover filter dropdowns from the GitHub button pinned at
+   the panel bottom. Sits just above the 38px button (bottom 14). */
+.githubDivider {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 60px;
+  height: 1px;
+  background: var(--text-primary);
+  pointer-events: none;
+}
+
 .github {
   position: absolute;
   left: 50%;
@@ -54,7 +66,7 @@
 .divider {
   height: 1px;
   width: 100%;
-  background: var(--border);
+  background: var(--text-primary);
 }
 
 /* Short teal divider, vertically centered in the gap left of the card. */

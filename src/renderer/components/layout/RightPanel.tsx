@@ -49,6 +49,7 @@ export default function RightPanel(): JSX.Element {
   return (
     <aside className={styles.panel}>
       <AccountSection />
+      {pathname === '/discover' && <span className={styles.githubDivider} aria-hidden="true" />}
       <a
         className={styles.github}
         href={GITHUB_URL}

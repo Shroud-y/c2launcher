@@ -47,7 +47,7 @@ export default function Sidebar(): JSX.Element {
   return (
     <nav className={styles.sidebar}>
       <IconButton label="Home" active={pathname === '/'} onClick={() => navigate('/')}>
-        <HomeIcon />
+        <HomeIcon size={28} />
       </IconButton>
       <IconButton
         label="Discover"
@@ -59,7 +59,7 @@ export default function Sidebar(): JSX.Element {
           navigate('/discover')
         }}
       >
-        <CompassIcon />
+        <CompassIcon size={28} />
       </IconButton>
 
       <div className={styles.separator} />
@@ -88,7 +88,7 @@ export default function Sidebar(): JSX.Element {
       })}
 
       <IconButton label="Add modpack" onClick={openCreate}>
-        <PlusIcon />
+        <PlusIcon size={28} />
       </IconButton>
 
       <div className={styles.spacer} />
@@ -106,16 +106,16 @@ export default function Sidebar(): JSX.Element {
           onClick={installUpdate}
           disabled={downloading}
         >
-          <DownloadIcon />
+          <DownloadIcon size={28} />
           {downloading && <span className={styles.updateProgress}>{percent}%</span>}
         </button>
       )}
 
       <IconButton label="Settings" onClick={openSettings}>
-        <GearIcon size={20} />
+        <GearIcon size={26} />
       </IconButton>
       <IconButton label="Log out" danger onClick={() => void logout()}>
-        <LogoutIcon />
+        <LogoutIcon size={28} />
       </IconButton>
     </nav>
   )

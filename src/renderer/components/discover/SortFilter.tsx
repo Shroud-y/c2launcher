@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react'
 import { ChevronDownIcon } from '../common/Icons'
 import { useDiscoverStore } from '../../store/discoverStore'
 import type { SearchQuery } from '@shared/types'
@@ -29,6 +30,8 @@ function pageList(current: number, last: number): (number | '…')[] {
   return out
 }
 
+type OpenMenu = 'sort' | 'size' | null
+
 export default function SortFilter(): JSX.Element {
   const sort = useDiscoverStore((s) => s.sort)
   const pageSize = useDiscoverStore((s) => s.pageSize)
@@ -40,48 +43,133 @@ export default function SortFilter(): JSX.Element {
 
   const lastPage = Math.max(1, Math.ceil(totalHits / pageSize))
 
-  return (
-    <div className={styles.row}>
-      <label className={styles.dropdown}>
-        Sort by: <strong>{SORT_LABELS[sort]}</strong>
-        <ChevronDownIcon />
-        <select
-          className={styles.select}
-          value={sort}
-          onChange={(e) => setSort(e.target.value as SearchQuery['sort'])}
-          aria-label="Sort by"
-        >
-          {Object.entries(SORT_LABELS).map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
-        </select>
-      </label>
+  // Index of the `…` currently being edited as a jump-to-page input.
+  const [jumpAt, setJumpAt] = useState<number | null>(null)
+  const [jumpValue, setJumpValue] = useState('')
 
-      <label className={styles.dropdown}>
-        View: <strong>{pageSize}</strong>
-        <ChevronDownIcon />
-        <select
-          className={styles.select}
-          value={pageSize}
-          onChange={(e) => setPageSize(Number(e.target.value))}
-          aria-label="Results per page"
+  // Which custom dropdown is open (only one at a time).
+  const [openMenu, setOpenMenu] = useState<OpenMenu>(null)
+  const barRef = useRef<HTMLDivElement>(null)
+
+  // Close the open menu on any outside click.
+  useEffect(() => {
+    if (openMenu === null) return
+    const onDown = (e: MouseEvent): void => {
+      if (barRef.current && !barRef.current.contains(e.target as Node)) setOpenMenu(null)
+    }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [openMenu])
+
+  function commitJump(): void {
+    const n = Number(jumpValue)
+    if (Number.isInteger(n) && n >= 1 && n <= lastPage) setPage(n)
+    setJumpAt(null)
+    setJumpValue('')
+  }
+
+  return (
+    <div className={styles.row} ref={barRef}>
+      <div className={styles.dropdown}>
+        <button
+          type="button"
+          className={styles.trigger}
+          aria-haspopup="listbox"
+          aria-expanded={openMenu === 'sort'}
+          onClick={() => setOpenMenu((m) => (m === 'sort' ? null : 'sort'))}
         >
-          {PAGE_SIZES.map((size) => (
-            <option key={size} value={size}>
-              {size}
-            </option>
-          ))}
-        </select>
-      </label>
+          Sort by: <strong>{SORT_LABELS[sort]}</strong>
+          <ChevronDownIcon />
+        </button>
+        {openMenu === 'sort' && (
+          <ul className={styles.menu} role="listbox">
+            {Object.entries(SORT_LABELS).map(([value, label]) => (
+              <li key={value}>
+                <button
+                  type="button"
+                  className={value === sort ? styles.menuItemActive : styles.menuItem}
+                  onClick={() => {
+                    setSort(value as SearchQuery['sort'])
+                    setOpenMenu(null)
+                  }}
+                >
+                  {label}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <div className={styles.dropdown}>
+        <button
+          type="button"
+          className={styles.trigger}
+          aria-haspopup="listbox"
+          aria-expanded={openMenu === 'size'}
+          onClick={() => setOpenMenu((m) => (m === 'size' ? null : 'size'))}
+        >
+          View: <strong>{pageSize}</strong>
+          <ChevronDownIcon />
+        </button>
+        {openMenu === 'size' && (
+          <ul className={styles.menu} role="listbox">
+            {PAGE_SIZES.map((size) => (
+              <li key={size}>
+                <button
+                  type="button"
+                  className={size === pageSize ? styles.menuItemActive : styles.menuItem}
+                  onClick={() => {
+                    setPageSize(size)
+                    setOpenMenu(null)
+                  }}
+                >
+                  {size}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
 
       <div className={styles.pagination}>
         {pageList(page, lastPage).map((p, i) =>
           p === '…' ? (
-            <span key={`gap-${i}`} className={styles.ellipsis}>
-              …
-            </span>
+            jumpAt === i ? (
+              <input
+                key={`gap-${i}`}
+                type="number"
+                min={1}
+                max={lastPage}
+                autoFocus
+                className={styles.jumpInput}
+                value={jumpValue}
+                placeholder="#"
+                aria-label="Go to page"
+                onChange={(e) => setJumpValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') commitJump()
+                  else if (e.key === 'Escape') {
+                    setJumpAt(null)
+                    setJumpValue('')
+                  }
+                }}
+                onBlur={commitJump}
+              />
+            ) : (
+              <button
+                key={`gap-${i}`}
+                type="button"
+                className={styles.ellipsis}
+                title="Go to page…"
+                onClick={() => {
+                  setJumpValue('')
+                  setJumpAt(i)
+                }}
+              >
+                …
+              </button>
+            )
           ) : (
             <button
               key={p}

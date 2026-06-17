@@ -22,11 +22,11 @@
 }
 
 .tab {
-  background: var(--bg-primary);
+  background: var(--bg-secondary);
   color: var(--text-primary);
 }
 
 .tabActive {
-  background: var(--bg-primary);
+  background: var(--bg-secondary);
   color: var(--accent);
 }

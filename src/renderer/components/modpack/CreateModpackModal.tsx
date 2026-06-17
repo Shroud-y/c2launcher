@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { CloseIcon } from '../common/Icons'
 import LoaderIcon from '../common/LoaderIcons'
+import Dropdown from '../common/Dropdown'
 import { useModalStore } from '../../store/modalStore'
 import { useModpackStore } from '../../store/modpackStore'
 import type { ModLoader } from '@shared/types'
@@ -169,18 +170,14 @@ export default function CreateModpackModal(): JSX.Element {
 
         <label className={styles.field}>
           <span className={styles.fieldLabel}>Game version</span>
-          <select
-            className={styles.input}
+          <Dropdown
+            ariaLabel="Game version"
             value={gameVersion}
-            onChange={(e) => setGameVersion(e.target.value)}
+            onChange={setGameVersion}
             disabled={versions.length === 0}
-          >
-            {versions.map((v) => (
-              <option key={v} value={v}>
-                {v}
-              </option>
-            ))}
-          </select>
+            placeholder="Select version…"
+            options={versions.map((v) => ({ value: v, label: v }))}
+          />
         </label>
 
         {error !== null && <span className={styles.error}>{error}</span>}

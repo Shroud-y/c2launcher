@@ -181,6 +181,13 @@ interface ModrinthProject {
   categories?: string[]
   game_versions?: string[]
   loaders?: string[]
+  gallery?: {
+    url: string
+    title: string | null
+    description: string | null
+    featured: boolean
+    ordering?: number
+  }[]
 }
 
 /** Single version lookup — used by the per-version download action. */
@@ -336,7 +343,16 @@ export const modrinthProvider: ContentProvider = {
       followers: raw.followers,
       categories: raw.categories ?? [],
       gameVersions: raw.game_versions ?? [],
-      loaders: raw.loaders ?? []
+      loaders: raw.loaders ?? [],
+      // Featured first, then by Modrinth's ordering field.
+      gallery: [...(raw.gallery ?? [])]
+        .sort((a, b) => Number(b.featured) - Number(a.featured) || (a.ordering ?? 0) - (b.ordering ?? 0))
+        .map((g) => ({
+          url: g.url,
+          title: g.title,
+          description: g.description,
+          featured: g.featured
+        }))
     }
     projectCache.set(projectId, detail)
     return detail

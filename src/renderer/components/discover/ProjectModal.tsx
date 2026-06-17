@@ -4,6 +4,7 @@ import { marked } from 'marked'
 import { CloseIcon, WindIcon } from '../common/Icons'
 import InstallAction, { installTargets, PICKER_TITLES, pickerEmptyMessage } from './InstallAction'
 import InstancePicker from './InstancePicker'
+import Dropdown from '../common/Dropdown'
 import { formatDownloads } from './SearchResultCard'
 import { useDiscoverStore } from '../../store/discoverStore'
 import { useModalStore } from '../../store/modalStore'
@@ -11,7 +12,7 @@ import { useModpackStore } from '../../store/modpackStore'
 import type { ProjectDetail, ProjectVersionInfo, SearchResult } from '@shared/types'
 import styles from './ProjectModal.module.css'
 
-type ModalTab = 'description' | 'versions'
+type ModalTab = 'description' | 'gallery' | 'versions'
 
 // External links only — the main process opens them in the system browser.
 DOMPurify.addHook('afterSanitizeAttributes', (node) => {
@@ -178,6 +179,13 @@ export default function ProjectModal({ result }: ProjectModalProps): JSX.Element
     )
   }
 
+  const gallery = detail?.gallery ?? []
+  // Gallery tab only appears once the project loaded with images.
+  const tabs = useMemo<ModalTab[]>(
+    () => (gallery.length > 0 ? ['description', 'gallery', 'versions'] : ['description', 'versions']),
+    [gallery.length]
+  )
+
   const downloads = detail?.downloads ?? result.downloads
   const followers = detail?.followers
 
@@ -236,7 +244,7 @@ export default function ProjectModal({ result }: ProjectModalProps): JSX.Element
         )}
 
         <nav className={styles.tabs}>
-          {(['description', 'versions'] as const).map((t) => (
+          {tabs.map((t) => (
             <button
               key={t}
               type="button"
@@ -261,6 +269,26 @@ export default function ProjectModal({ result }: ProjectModalProps): JSX.Element
           </div>
         )}
 
+        {tab === 'gallery' && (
+          <div className={styles.body}>
+            <div className={styles.gallery}>
+              {gallery.map((img) => (
+                <figure key={img.url} className={styles.galleryItem}>
+                  <img className={styles.galleryImage} src={img.url} alt={img.title ?? ''} loading="lazy" />
+                  {(img.title !== null || img.description !== null) && (
+                    <figcaption className={styles.galleryCaption}>
+                      {img.title !== null && <span className={styles.galleryTitle}>{img.title}</span>}
+                      {img.description !== null && (
+                        <span className={styles.galleryDesc}>{img.description}</span>
+                      )}
+                    </figcaption>
+                  )}
+                </figure>
+              ))}
+            </div>
+          </div>
+        )}
+
         {tab === 'versions' && (
           <div className={styles.body}>
             {versions === null ? (
@@ -270,30 +298,24 @@ export default function ProjectModal({ result }: ProjectModalProps): JSX.Element
             ) : (
               <>
                 <div className={styles.versionFilters}>
-                  <select
-                    className={styles.filterSelect}
+                  <Dropdown
+                    ariaLabel="Filter by loader"
                     value={loaderFilter}
-                    onChange={(e) => setLoaderFilter(e.target.value)}
-                  >
-                    <option value="">All loaders</option>
-                    {loaderOptions.map((l) => (
-                      <option key={l} value={l}>
-                        {capitalize(l)}
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    className={styles.filterSelect}
+                    onChange={setLoaderFilter}
+                    options={[
+                      { value: '', label: 'All loaders' },
+                      ...loaderOptions.map((l) => ({ value: l, label: capitalize(l) }))
+                    ]}
+                  />
+                  <Dropdown
+                    ariaLabel="Filter by game version"
                     value={gameVersionFilter}
-                    onChange={(e) => setGameVersionFilter(e.target.value)}
-                  >
-                    <option value="">All game versions</option>
-                    {gameVersionOptions.map((gv) => (
-                      <option key={gv} value={gv}>
-                        {gv}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={setGameVersionFilter}
+                    options={[
+                      { value: '', label: 'All game versions' },
+                      ...gameVersionOptions.map((gv) => ({ value: gv, label: gv }))
+                    ]}
+                  />
                   {targetPack !== null && category !== 'modpacks' && (
                     <label className={styles.filterCheckbox}>
                       <input

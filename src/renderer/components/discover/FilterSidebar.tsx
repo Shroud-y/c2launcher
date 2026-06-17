@@ -122,40 +122,58 @@ export default function FilterSidebar(): JSX.Element {
         </ul>
       </section>
 
-      <section className={styles.dropdownSection}>
-        <label className={styles.dropdownField}>
-          <span className={styles.heading}>Game version</span>
-          <select
-            className={styles.dropdown}
-            value={gameVersion ?? ''}
-            onChange={(e) => setGameVersion(e.target.value === '' ? null : e.target.value)}
-          >
-            <option value="">All versions</option>
+      <section className={styles.selectSection}>
+        <div className={styles.selectCol}>
+          <h3 className={styles.heading}>Version</h3>
+          <ul className={styles.optList}>
+            <li>
+              <button
+                type="button"
+                className={gameVersion === null ? styles.optItemActive : styles.optItem}
+                onClick={() => setGameVersion(null)}
+              >
+                All
+              </button>
+            </li>
             {versions.map((v) => (
-              <option key={v} value={v}>
-                {v}
-              </option>
+              <li key={v}>
+                <button
+                  type="button"
+                  className={gameVersion === v ? styles.optItemActive : styles.optItem}
+                  onClick={() => setGameVersion(gameVersion === v ? null : v)}
+                >
+                  {v}
+                </button>
+              </li>
             ))}
-          </select>
-        </label>
+          </ul>
+        </div>
 
-        <label className={styles.dropdownField}>
-          <span className={styles.heading}>Loader</span>
-          <select
-            className={styles.dropdown}
-            value={loader ?? ''}
-            onChange={(e) =>
-              setLoader(e.target.value === '' ? null : (e.target.value as ModLoader))
-            }
-          >
-            <option value="">All loaders</option>
+        <div className={`${styles.selectCol} ${styles.selectColRight}`}>
+          <h3 className={styles.heading}>Loader</h3>
+          <ul className={styles.optList}>
+            <li>
+              <button
+                type="button"
+                className={loader === null ? styles.optItemActive : styles.optItem}
+                onClick={() => setLoader(null)}
+              >
+                All
+              </button>
+            </li>
             {LOADERS.map((l) => (
-              <option key={l.value} value={l.value}>
-                {l.label}
-              </option>
+              <li key={l.value}>
+                <button
+                  type="button"
+                  className={`${loader === l.value ? styles.optItemActive : styles.optItem} ${styles[`loader_${l.value}`]}`}
+                  onClick={() => setLoader(loader === l.value ? null : l.value)}
+                >
+                  {l.label}
+                </button>
+              </li>
             ))}
-          </select>
-        </label>
+          </ul>
+        </div>
       </section>
     </div>
   )

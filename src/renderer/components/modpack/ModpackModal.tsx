@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CloseIcon, DownloadIcon, FolderIcon, PlusIcon, WindIcon } from '../common/Icons'
+import Dropdown from '../common/Dropdown'
 import { formatSubtitle } from '../../data/format'
 import { useDiscoverStore } from '../../store/discoverStore'
 import { useModalStore } from '../../store/modalStore'
@@ -601,64 +602,59 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
             </label>
             <label className={styles.field}>
               <span className={styles.fieldLabel}>Game version</span>
-              <select
-                className={styles.input}
+              <Dropdown
+                ariaLabel="Game version"
                 value={gameVersion}
-                onChange={(e) => {
-                  setGameVersion(e.target.value)
+                disabled={localPack === null}
+                onChange={(v) => {
+                  setGameVersion(v)
                   // A pinned loader build rarely matches a different MC version.
                   setLoaderVersion('')
                 }}
-                disabled={localPack === null}
-              >
-                {gameVersion === '' && <option value="">— not assigned —</option>}
-                {gameVersion !== '' && !versions.includes(gameVersion) && (
-                  <option value={gameVersion}>{gameVersion}</option>
-                )}
-                {versions.map((v) => (
-                  <option key={v} value={v}>
-                    {v}
-                  </option>
-                ))}
-              </select>
+                options={[
+                  ...(gameVersion === '' ? [{ value: '', label: '— not assigned —' }] : []),
+                  ...(gameVersion !== '' && !versions.includes(gameVersion)
+                    ? [{ value: gameVersion, label: gameVersion }]
+                    : []),
+                  ...versions.map((v) => ({ value: v, label: v }))
+                ]}
+              />
             </label>
             <label className={styles.field}>
               <span className={styles.fieldLabel}>Loader</span>
-              <select
-                className={styles.input}
+              <Dropdown
+                ariaLabel="Loader"
                 value={loader}
-                onChange={(e) => {
-                  setLoader(e.target.value as ModLoader)
+                disabled={localPack === null}
+                onChange={(v) => {
+                  setLoader(v as ModLoader)
                   setLoaderVersion('')
                 }}
-                disabled={localPack === null}
-              >
-                <option value="vanilla">Vanilla</option>
-                <option value="fabric">Fabric</option>
-                <option value="forge">Forge</option>
-                <option value="neoforge">NeoForge</option>
-                <option value="quilt">Quilt</option>
-              </select>
+                options={[
+                  { value: 'vanilla', label: 'Vanilla' },
+                  { value: 'fabric', label: 'Fabric' },
+                  { value: 'forge', label: 'Forge' },
+                  { value: 'neoforge', label: 'NeoForge' },
+                  { value: 'quilt', label: 'Quilt' }
+                ]}
+              />
             </label>
             {loader !== 'vanilla' && (
               <label className={styles.field}>
                 <span className={styles.fieldLabel}>Loader version</span>
-                <select
-                  className={styles.input}
+                <Dropdown
+                  ariaLabel="Loader version"
                   value={loaderVersion}
-                  onChange={(e) => setLoaderVersion(e.target.value)}
                   disabled={localPack === null || loaderVersionsLoading}
-                >
-                  <option value="">{loaderVersionsLoading ? 'Loading…' : 'LTS'}</option>
-                  {loaderVersion !== '' && !loaderVersions.includes(loaderVersion) && (
-                    <option value={loaderVersion}>{loaderVersion}</option>
-                  )}
-                  {loaderVersions.map((v) => (
-                    <option key={v} value={v}>
-                      {v}
-                    </option>
-                  ))}
-                </select>
+                  onChange={setLoaderVersion}
+                  options={[
+                    { value: '', label: loaderVersionsLoading ? 'Loading…' : 'LTS' },
+                    ...(loaderVersion !== '' && !loaderVersions.includes(loaderVersion)
+                      ? [{ value: loaderVersion, label: loaderVersion }]
+                      : []),
+                    ...loaderVersions.map((v) => ({ value: v, label: v }))
+                  ]}
+                />
               </label>
             )}
             <label className={styles.field}>
