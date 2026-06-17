@@ -1,4 +1,5 @@
 import { CloseIcon, WindIcon } from '../common/Icons'
+import { useCloseAnimation } from '../../hooks/useCloseAnimation'
 import type { Modpack } from '@shared/types'
 import styles from './InstancePicker.module.css'
 
@@ -33,12 +34,13 @@ export default function InstancePicker({
   onPick,
   onClose
 }: InstancePickerProps): JSX.Element {
+  const { closing, requestClose } = useCloseAnimation(onClose)
   return (
     <div
-      className={styles.overlay}
+      className={`${styles.overlay} ${closing ? styles.closing : ''}`}
       onClick={(e) => {
         e.stopPropagation()
-        onClose()
+        requestClose()
       }}
     >
       <div
@@ -49,7 +51,7 @@ export default function InstancePicker({
       >
         <header className={styles.header}>
           <h3 className={styles.title}>{title}</h3>
-          <button type="button" className={styles.closeButton} aria-label="Close" onClick={onClose}>
+          <button type="button" className={styles.closeButton} aria-label="Close" onClick={requestClose}>
             <CloseIcon />
           </button>
         </header>

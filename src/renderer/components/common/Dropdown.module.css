@@ -12,7 +12,7 @@
   padding: 0 12px;
   border-radius: 8px;
   border: 1px solid var(--border);
-  background: var(--bg-primary);
+  background: var(--bg-secondary);
   color: var(--text-primary);
   font-size: 13px;
   cursor: pointer;
@@ -29,8 +29,33 @@
   cursor: default;
 }
 
+.label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.prefix {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
 .placeholder {
   color: var(--text-muted);
+}
+
+/* Toolbar pill: hugs its content, no border, secondary background. */
+.triggerPill {
+  width: auto;
+  border: none;
+  background: var(--bg-secondary);
+  font-weight: 600;
+}
+
+.triggerPill:hover:enabled,
+.triggerPill[aria-expanded='true'] {
+  border: none;
+  background: var(--bg-hover);
 }
 
 .trigger svg {
@@ -43,12 +68,8 @@
 }
 
 .menu {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  z-index: 50;
-  width: 100%;
-  max-height: 240px;
+  position: fixed;
+  z-index: 1000;
   overflow-y: auto;
   list-style: none;
   display: flex;
@@ -90,8 +111,11 @@
   white-space: nowrap;
 }
 
-.item:hover {
+.item:hover,
+.item:focus,
+.itemActive:focus {
   background: var(--bg-hover);
+  outline: none;
 }
 
 .itemActive {

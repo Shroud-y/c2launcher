@@ -82,6 +82,12 @@
   background: var(--accent);
 }
 
+/* Nudge the account block up via transform so surrounding layout (dividers,
+   FilterSidebar, GitHub button) is unaffected. */
+.accountSlot {
+  transform: translateY(-15px);
+}
+
 .account {
   display: flex;
   align-items: center;

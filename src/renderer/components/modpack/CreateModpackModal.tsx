@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { CloseIcon } from '../common/Icons'
 import LoaderIcon from '../common/LoaderIcons'
 import Dropdown from '../common/Dropdown'
+import { useCloseAnimation } from '../../hooks/useCloseAnimation'
 import { useModalStore } from '../../store/modalStore'
 import { useModpackStore } from '../../store/modpackStore'
 import type { ModLoader } from '@shared/types'
@@ -17,6 +18,7 @@ const LOADERS: { id: ModLoader; label: string }[] = [
 
 export default function CreateModpackModal(): JSX.Element {
   const closeCreate = useModalStore((s) => s.closeCreate)
+  const { closing, requestClose } = useCloseAnimation(closeCreate)
   const openModpack = useModalStore((s) => s.openModpack)
   const create = useModpackStore((s) => s.create)
   const importMrpack = useModpackStore((s) => s.importMrpack)
@@ -112,14 +114,14 @@ export default function CreateModpackModal(): JSX.Element {
   }
 
   return (
-    <div className={styles.overlay} onClick={closeCreate}>
+    <div className={`${styles.overlay} ${closing ? styles.closing : ''}`} onClick={requestClose}>
       <div
         className={styles.modal}
         role="dialog"
         aria-label="Create modpack"
         onClick={(e) => e.stopPropagation()}
       >
-        <button type="button" className={styles.closeButton} aria-label="Close" onClick={closeCreate}>
+        <button type="button" className={styles.closeButton} aria-label="Close" onClick={requestClose}>
           <CloseIcon />
         </button>
         <h2 className={styles.title}>New modpack</h2>

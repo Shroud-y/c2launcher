@@ -12,12 +12,12 @@ function AccountSection(): JSX.Element {
   const { profile, status, error, login } = useAuthStore()
 
   if (status === 'initializing') {
-    return <div className={styles.accountHint}>Checking account…</div>
+    return <div className={`${styles.accountSlot} ${styles.accountHint}`}>Checking account…</div>
   }
 
   if (profile !== null) {
     return (
-      <div className={styles.account}>
+      <div className={`${styles.accountSlot} ${styles.account}`}>
         <Avatar size={40} skinBase64={profile.skinBase64} />
         <div className={styles.accountText}>
           <span className={styles.username}>{profile.username}</span>
@@ -28,7 +28,7 @@ function AccountSection(): JSX.Element {
   }
 
   return (
-    <div className={styles.loggedOut}>
+    <div className={`${styles.accountSlot} ${styles.loggedOut}`}>
       <span className={styles.accountHint}>Not logged in</span>
       <button
         type="button"

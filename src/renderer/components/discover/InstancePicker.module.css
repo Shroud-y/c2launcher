@@ -43,6 +43,30 @@
   }
 }
 
+.overlay.closing {
+  animation: pickerOverlayOut 0.18s ease forwards;
+}
+
+.overlay.closing .modal {
+  animation: pickerModalOut 0.18s ease forwards;
+}
+
+@keyframes pickerOverlayOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes pickerModalOut {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+  }
+}
+
 .header {
   display: flex;
   align-items: center;

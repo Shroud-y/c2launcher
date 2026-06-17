@@ -13,6 +13,7 @@
   --trend-green:   #3fb950;
   --sidebar-width: 90px;
   --right-panel-width: 200px;
+  --discover-width: 1000px;
   --topbar-height: 56px;
   --card-radius:   12px;
   --icon-radius:   18px;
@@ -50,6 +51,19 @@ button {
 
 input {
   font-family: inherit;
+}
+
+/* Respect the OS "reduce motion" setting: collapse all animations and
+   transitions (modal pops, dropdown menus, chevron flips, hovers). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 ::-webkit-scrollbar {

@@ -17,7 +17,7 @@ function createWindow(): void {
     minHeight: 600,
     frame: false,
     backgroundColor: '#0f1117',
-    ...(process.platform === 'linux' ? { icon } : {}),
+    icon,
     show: false,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -42,6 +42,10 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
+  // Windows groups taskbar entries by AppUserModelID; without it the window
+  // inherits the default Electron icon instead of ours.
+  if (process.platform === 'win32') app.setAppUserModelId('com.c2launcher.app')
+
   registerWindowIpc()
   registerAuthIpc()
   registerModpackIpc()

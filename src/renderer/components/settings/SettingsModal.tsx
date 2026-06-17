@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { CloseIcon } from '../common/Icons'
 import { useModalStore } from '../../store/modalStore'
+import { useCloseAnimation } from '../../hooks/useCloseAnimation'
 import type { AppSettings } from '@shared/types'
 import styles from './SettingsModal.module.css'
 
@@ -10,6 +11,7 @@ function stripIpcPrefix(message: string): string {
 
 export default function SettingsModal(): JSX.Element {
   const closeSettings = useModalStore((s) => s.closeSettings)
+  const { closing, requestClose } = useCloseAnimation(closeSettings)
 
   const [settings, setSettings] = useState<AppSettings | null>(null)
   const [javaError, setJavaError] = useState<string | null>(null)
@@ -38,14 +40,14 @@ export default function SettingsModal(): JSX.Element {
   }
 
   return (
-    <div className={styles.overlay} onClick={closeSettings}>
+    <div className={`${styles.overlay} ${closing ? styles.closing : ''}`} onClick={requestClose}>
       <div
         className={styles.modal}
         role="dialog"
         aria-label="Settings"
         onClick={(e) => e.stopPropagation()}
       >
-        <button type="button" className={styles.closeButton} aria-label="Close" onClick={closeSettings}>
+        <button type="button" className={styles.closeButton} aria-label="Close" onClick={requestClose}>
           <CloseIcon />
         </button>
         <h2 className={styles.title}>Settings</h2>

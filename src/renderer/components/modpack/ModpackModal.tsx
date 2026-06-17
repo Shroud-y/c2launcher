@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CloseIcon, DownloadIcon, FolderIcon, PlusIcon, WindIcon } from '../common/Icons'
 import Dropdown from '../common/Dropdown'
+import { useCloseAnimation } from '../../hooks/useCloseAnimation'
 import { formatSubtitle } from '../../data/format'
 import { useDiscoverStore } from '../../store/discoverStore'
 import { useModalStore } from '../../store/modalStore'
@@ -40,6 +41,7 @@ interface ModpackModalProps {
 export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Element {
   const navigate = useNavigate()
   const closeModpack = useModalStore((s) => s.closeModpack)
+  const { closing, requestClose } = useCloseAnimation(closeModpack)
   const setInstallTarget = useDiscoverStore((s) => s.setInstallTarget)
   const setDiscoverCategory = useDiscoverStore((s) => s.setCategory)
   const {
@@ -358,14 +360,14 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
   }
 
   return (
-    <div className={styles.overlay} onClick={closeModpack}>
+    <div className={`${styles.overlay} ${closing ? styles.closing : ''}`} onClick={requestClose}>
       <div
         className={styles.modal}
         role="dialog"
         aria-label={pack.name}
         onClick={(e) => e.stopPropagation()}
       >
-        <button type="button" className={styles.closeButton} aria-label="Close" onClick={closeModpack}>
+        <button type="button" className={styles.closeButton} aria-label="Close" onClick={requestClose}>
           <CloseIcon />
         </button>
 

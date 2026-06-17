@@ -39,8 +39,10 @@ export function initAutoUpdater(): void {
   })
 
   autoUpdater.on('update-downloaded', () => {
-    // Restart into the freshly downloaded installer immediately.
-    autoUpdater.quitAndInstall()
+    // Install silently and relaunch. isSilent=true passes /S to the NSIS
+    // installer so the assisted-installer wizard window never appears during
+    // an update; isForceRunAfter=true reopens the app once it finishes.
+    autoUpdater.quitAndInstall(true, true)
   })
 
   autoUpdater.on('error', (err) => {

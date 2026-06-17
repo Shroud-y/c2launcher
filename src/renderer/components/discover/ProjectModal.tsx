@@ -5,6 +5,7 @@ import { CloseIcon, WindIcon } from '../common/Icons'
 import InstallAction, { installTargets, PICKER_TITLES, pickerEmptyMessage } from './InstallAction'
 import InstancePicker from './InstancePicker'
 import Dropdown from '../common/Dropdown'
+import { useCloseAnimation } from '../../hooks/useCloseAnimation'
 import { formatDownloads } from './SearchResultCard'
 import { useDiscoverStore } from '../../store/discoverStore'
 import { useModalStore } from '../../store/modalStore'
@@ -61,6 +62,7 @@ interface ProjectModalProps {
 
 export default function ProjectModal({ result }: ProjectModalProps): JSX.Element {
   const closeDiscoverProject = useModalStore((s) => s.closeDiscoverProject)
+  const { closing, requestClose } = useCloseAnimation(closeDiscoverProject)
   const installError = useDiscoverStore((s) => s.installErrors[result.id] ?? '')
   const category = useDiscoverStore((s) => s.category)
   const installing = useDiscoverStore((s) => s.installing[result.id] === true)
@@ -190,7 +192,10 @@ export default function ProjectModal({ result }: ProjectModalProps): JSX.Element
   const followers = detail?.followers
 
   return (
-    <div className={styles.overlay} onClick={closeDiscoverProject}>
+    <div
+      className={`${styles.overlay} ${closing ? styles.closing : ''}`}
+      onClick={requestClose}
+    >
       <div
         className={styles.modal}
         role="dialog"
@@ -201,7 +206,7 @@ export default function ProjectModal({ result }: ProjectModalProps): JSX.Element
           type="button"
           className={styles.closeButton}
           aria-label="Close"
-          onClick={closeDiscoverProject}
+          onClick={requestClose}
         >
           <CloseIcon />
         </button>

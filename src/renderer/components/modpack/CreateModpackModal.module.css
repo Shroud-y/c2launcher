@@ -19,6 +19,24 @@
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
+.overlay.closing {
+  animation: overlayFadeOut 0.18s ease forwards;
+}
+
+.overlay.closing .modal {
+  animation: modalPopOut 0.18s ease forwards;
+}
+
+@keyframes overlayFadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes modalPopOut {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to { opacity: 0; transform: translateY(8px) scale(0.97); }
+}
+
 .modal {
   position: relative;
   animation: modalPopIn 0.18s ease;
@@ -105,7 +123,7 @@
   padding: 9px 12px;
   border-radius: 8px;
   border: 1px solid var(--border);
-  background: var(--bg-primary);
+  background: var(--bg-secondary);
   color: var(--text-primary);
   font-size: 14px;
   outline: none;

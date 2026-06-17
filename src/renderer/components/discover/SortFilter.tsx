@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
-import { ChevronDownIcon } from '../common/Icons'
+import { useState } from 'react'
+import Dropdown from '../common/Dropdown'
 import { useDiscoverStore } from '../../store/discoverStore'
 import type { SearchQuery } from '@shared/types'
 import styles from './SortFilter.module.css'
@@ -30,8 +30,6 @@ function pageList(current: number, last: number): (number | '…')[] {
   return out
 }
 
-type OpenMenu = 'sort' | 'size' | null
-
 export default function SortFilter(): JSX.Element {
   const sort = useDiscoverStore((s) => s.sort)
   const pageSize = useDiscoverStore((s) => s.pageSize)
@@ -47,20 +45,6 @@ export default function SortFilter(): JSX.Element {
   const [jumpAt, setJumpAt] = useState<number | null>(null)
   const [jumpValue, setJumpValue] = useState('')
 
-  // Which custom dropdown is open (only one at a time).
-  const [openMenu, setOpenMenu] = useState<OpenMenu>(null)
-  const barRef = useRef<HTMLDivElement>(null)
-
-  // Close the open menu on any outside click.
-  useEffect(() => {
-    if (openMenu === null) return
-    const onDown = (e: MouseEvent): void => {
-      if (barRef.current && !barRef.current.contains(e.target as Node)) setOpenMenu(null)
-    }
-    document.addEventListener('mousedown', onDown)
-    return () => document.removeEventListener('mousedown', onDown)
-  }, [openMenu])
-
   function commitJump(): void {
     const n = Number(jumpValue)
     if (Number.isInteger(n) && n >= 1 && n <= lastPage) setPage(n)
@@ -69,68 +53,24 @@ export default function SortFilter(): JSX.Element {
   }
 
   return (
-    <div className={styles.row} ref={barRef}>
-      <div className={styles.dropdown}>
-        <button
-          type="button"
-          className={styles.trigger}
-          aria-haspopup="listbox"
-          aria-expanded={openMenu === 'sort'}
-          onClick={() => setOpenMenu((m) => (m === 'sort' ? null : 'sort'))}
-        >
-          Sort by: <strong>{SORT_LABELS[sort]}</strong>
-          <ChevronDownIcon />
-        </button>
-        {openMenu === 'sort' && (
-          <ul className={styles.menu} role="listbox">
-            {Object.entries(SORT_LABELS).map(([value, label]) => (
-              <li key={value}>
-                <button
-                  type="button"
-                  className={value === sort ? styles.menuItemActive : styles.menuItem}
-                  onClick={() => {
-                    setSort(value as SearchQuery['sort'])
-                    setOpenMenu(null)
-                  }}
-                >
-                  {label}
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+    <div className={styles.row}>
+      <Dropdown
+        pill
+        ariaLabel="Sort by"
+        prefix="Sort by:"
+        value={sort}
+        onChange={(v) => setSort(v as SearchQuery['sort'])}
+        options={Object.entries(SORT_LABELS).map(([value, label]) => ({ value, label }))}
+      />
 
-      <div className={styles.dropdown}>
-        <button
-          type="button"
-          className={styles.trigger}
-          aria-haspopup="listbox"
-          aria-expanded={openMenu === 'size'}
-          onClick={() => setOpenMenu((m) => (m === 'size' ? null : 'size'))}
-        >
-          View: <strong>{pageSize}</strong>
-          <ChevronDownIcon />
-        </button>
-        {openMenu === 'size' && (
-          <ul className={styles.menu} role="listbox">
-            {PAGE_SIZES.map((size) => (
-              <li key={size}>
-                <button
-                  type="button"
-                  className={size === pageSize ? styles.menuItemActive : styles.menuItem}
-                  onClick={() => {
-                    setPageSize(size)
-                    setOpenMenu(null)
-                  }}
-                >
-                  {size}
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+      <Dropdown
+        pill
+        ariaLabel="Results per page"
+        prefix="View:"
+        value={String(pageSize)}
+        onChange={(v) => setPageSize(Number(v))}
+        options={PAGE_SIZES.map((size) => ({ value: String(size), label: String(size) }))}
+      />
 
       <div className={styles.pagination}>
         {pageList(page, lastPage).map((p, i) =>
