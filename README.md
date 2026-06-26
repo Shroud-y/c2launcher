@@ -40,8 +40,6 @@ C² Launcher is a desktop Minecraft launcher built with Electron + React. It let
 
 ## Screenshots
 
-> _Drop your screenshots in `docs/screenshots/` and update the paths below._
-
 | Home | Discover |
 | :---: | :---: |
 | ![Home](docs/screenshots/home.png) | ![Discover](docs/screenshots/discover.png) |
