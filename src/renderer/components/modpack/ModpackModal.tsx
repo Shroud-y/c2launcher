@@ -88,6 +88,7 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
   const [bulkUpdating, setBulkUpdating] = useState(false)
   /** Per-tab name filter for the installed list; reset when switching tabs. */
   const [search, setSearch] = useState('')
+  const [importingFiles, setImportingFiles] = useState(false)
 
   useEffect(() => {
     if (!isContentTab(tab) || content[tab] !== undefined) return
@@ -197,12 +198,36 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
     void launch(modpackId)
   }
 
-  /** + button: browse Discover with installs locked to this instance. */
+  // The content tab the add actions apply to (settings/logs fall back to mods).
+  const addCategory: InstallableCategory = isContentTab(tab) ? tab : 'mods'
+
+  /** Browse Discover with installs locked to this instance and the active tab. */
   function addContent(): void {
     setInstallTarget(modpackId)
-    setDiscoverCategory('mods')
+    setDiscoverCategory(addCategory)
     closeModpack()
     navigate('/discover')
+  }
+
+  /** Pick local files from disk and copy them into the active content folder. */
+  async function importFiles(): Promise<void> {
+    setModsError(null)
+    setImportingFiles(true)
+    try {
+      const added = await window.api.modpack.importContent(modpackId, addCategory)
+      if (added.length > 0) {
+        // Show the new files immediately, then refresh so Modrinth metadata
+        // (name, version, icon) fills in by hash.
+        setContent((c) => ({ ...c, [addCategory]: [...(c[addCategory] ?? []), ...added] }))
+        const enriched = await window.api.modpack.content(modpackId, addCategory)
+        setContent((c) => ({ ...c, [addCategory]: enriched }))
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Could not import files'
+      setModsError(message.replace(/^Error invoking remote method '[^']+': (?:\w*Error: )?/, ''))
+    } finally {
+      setImportingFiles(false)
+    }
   }
 
   async function changeIcon(clear: boolean): Promise<void> {
@@ -400,6 +425,18 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
                 onClick={addContent}
               >
                 <PlusIcon />
+              </button>
+            )}
+            {localPack !== null && (
+              <button
+                type="button"
+                className={styles.folderButton}
+                title="Import from files"
+                aria-label="Import content from files"
+                disabled={importingFiles}
+                onClick={() => void importFiles()}
+              >
+                <DownloadIcon />
               </button>
             )}
             {localPack !== null && (

@@ -1,7 +1,7 @@
 import { createHash } from 'crypto'
 import { createReadStream } from 'fs'
-import { readdir, rename, rm, stat } from 'fs/promises'
-import { join } from 'path'
+import { copyFile, mkdir, readdir, rename, rm, stat } from 'fs/promises'
+import { basename, join } from 'path'
 import {
   getLatestVersionsByHashes,
   getModrinthVersion,
@@ -171,6 +171,49 @@ export async function setContentEnabled(
     throw new Error('Could not toggle the file — stop the game first')
   }
   return toInstalledContent(newName)
+}
+
+/**
+ * Copies user-picked files from disk into the instance's content folder
+ * for the given category. Each name is validated against the category's
+ * accepted extensions; a name that already exists gets a " (2)", " (3)"…
+ * suffix so an import never silently overwrites an installed file.
+ * Returns the freshly added entries (unenriched — the caller refreshes).
+ */
+export async function importContentFiles(
+  modpackId: string,
+  category: InstallableCategory,
+  filePaths: string[]
+): Promise<InstalledContent[]> {
+  const dir = contentDir(modpackId, category)
+  await mkdir(dir, { recursive: true })
+  const existing = new Set(await readdir(dir).catch(() => []))
+
+  const added: InstalledContent[] = []
+  for (const source of filePaths) {
+    const fileName = basename(source)
+    assertSafeFileName(fileName, category)
+    const target = uniqueName(fileName, existing)
+    await copyFile(source, join(dir, target))
+    existing.add(target)
+    added.push(toInstalledContent(target))
+  }
+  return added
+}
+
+/** "mod.jar" → "mod (2).jar" when the name is already taken. */
+function uniqueName(fileName: string, taken: Set<string>): string {
+  if (!taken.has(fileName)) return fileName
+  const dot = fileName.lastIndexOf('.')
+  const base = dot > 0 ? fileName.slice(0, dot) : fileName
+  const ext = dot > 0 ? fileName.slice(dot) : ''
+  let counter = 2
+  let candidate = `${base} (${counter})${ext}`
+  while (taken.has(candidate)) {
+    counter += 1
+    candidate = `${base} (${counter})${ext}`
+  }
+  return candidate
 }
 
 export async function removeContentFile(

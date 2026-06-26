@@ -21,7 +21,7 @@ export default function CreateModpackModal(): JSX.Element {
   const { closing, requestClose } = useCloseAnimation(closeCreate)
   const openModpack = useModalStore((s) => s.openModpack)
   const create = useModpackStore((s) => s.create)
-  const importMrpack = useModpackStore((s) => s.importMrpack)
+  const importModpack = useModpackStore((s) => s.importModpack)
 
   const [name, setName] = useState('')
   const [loader, setLoader] = useState<ModLoader>('vanilla')
@@ -85,7 +85,7 @@ export default function CreateModpackModal(): JSX.Element {
     setSubmitting(true)
     setError(null)
     try {
-      const pack = await importMrpack()
+      const pack = await importModpack()
       if (pack === null) {
         // Dialog cancelled — leave the form as-is.
         setSubmitting(false)

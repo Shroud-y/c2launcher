@@ -181,9 +181,14 @@
   color: var(--text-muted);
 }
 
-.folderButton:hover {
+.folderButton:hover:enabled {
   background: var(--bg-hover);
   color: var(--text-primary);
+}
+
+.folderButton:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
 .stopButton {

@@ -1,6 +1,6 @@
 import { BrowserWindow, dialog, ipcMain, shell, type WebContents } from 'electron'
 import { mkdir, readFile, stat } from 'fs/promises'
-import { extname } from 'path'
+import { basename, extname } from 'path'
 import { IpcChannel } from '@shared/ipc-channels'
 import type {
   ContentUpdate,
@@ -27,9 +27,10 @@ import {
   minecraftRoot,
   updateModpack
 } from '../modpacks/store'
-import { installModrinthPack, installMrpackFromFile } from '../modpacks/modrinthInstall'
+import { installModpackFromFile, installModrinthPack } from '../modpacks/modrinthInstall'
 import {
   checkContentUpdates,
+  importContentFiles,
   installContentFromModrinth,
   listContent,
   removeContentFile,
@@ -354,7 +355,7 @@ export function registerModpackIpc(): void {
       const options = {
         title: 'Import modpack',
         properties: ['openFile' as const],
-        filters: [{ name: 'Modrinth modpack', extensions: ['mrpack'] }]
+        filters: [{ name: 'Modpack', extensions: ['mrpack', 'zip'] }]
       }
       const { canceled, filePaths } =
         win !== null ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options)
@@ -362,9 +363,12 @@ export function registerModpackIpc(): void {
       if (canceled || filePath === undefined) return null
 
       const buffer = await readFile(filePath)
+      // Strip the extension off the file name — used as the instance name
+      // when a plain instance zip carries no name of its own.
+      const fallbackName = basename(filePath).replace(/\.[^.]+$/, '')
       let packId: string | null = null
       try {
-        const pack = await installMrpackFromFile(buffer, (p, percent, message) => {
+        const pack = await installModpackFromFile(buffer, fallbackName, (p, percent, message) => {
           if (packId === null) {
             packId = p.id
             busy.add(p.id)
@@ -389,6 +393,37 @@ export function registerModpackIpc(): void {
     IpcChannel.ModpackInstallMod,
     (_e, params: InstallContentParams): Promise<InstalledContent> =>
       installContentFromModrinth(params)
+  )
+
+  // Accepted file extensions per category for the "Choose files" dialog.
+  const CONTENT_FILTERS: Record<InstallableCategory, { name: string; extensions: string[] }> = {
+    mods: { name: 'Mods', extensions: ['jar'] },
+    resourcepacks: { name: 'Resource packs', extensions: ['zip'] },
+    shaders: { name: 'Shaders', extensions: ['zip'] },
+    datapacks: { name: 'Data packs', extensions: ['zip'] }
+  }
+
+  ipcMain.handle(
+    IpcChannel.ModpackImportContent,
+    async (
+      event,
+      id: string,
+      category: InstallableCategory
+    ): Promise<InstalledContent[]> => {
+      if (getModpack(id) === null) throw new Error('Modpack not found')
+      if (busy.has(id)) throw new Error('Stop the game before importing files')
+
+      const win = BrowserWindow.fromWebContents(event.sender)
+      const options = {
+        title: `Add ${CONTENT_FILTERS[category].name.toLowerCase()}`,
+        properties: ['openFile' as const, 'multiSelections' as const],
+        filters: [CONTENT_FILTERS[category]]
+      }
+      const { canceled, filePaths } =
+        win !== null ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options)
+      if (canceled || filePaths.length === 0) return []
+      return importContentFiles(id, category, filePaths)
+    }
   )
 
   ipcMain.handle(

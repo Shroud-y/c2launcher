@@ -52,10 +52,12 @@ const api = {
     remove: (id: string): Promise<void> => ipcRenderer.invoke(IpcChannel.ModpackDelete, id),
     installModrinthPack: (projectId: string, versionId?: string): Promise<Modpack> =>
       ipcRenderer.invoke(IpcChannel.ModpackInstallModrinth, projectId, versionId),
-    importMrpack: (): Promise<Modpack | null> =>
+    importModpack: (): Promise<Modpack | null> =>
       ipcRenderer.invoke(IpcChannel.ModpackImportMrpack),
     installContent: (params: InstallContentParams): Promise<InstalledContent> =>
       ipcRenderer.invoke(IpcChannel.ModpackInstallMod, params),
+    importContent: (id: string, category: InstallableCategory): Promise<InstalledContent[]> =>
+      ipcRenderer.invoke(IpcChannel.ModpackImportContent, id, category),
     content: (id: string, category: InstallableCategory): Promise<InstalledContent[]> =>
       ipcRenderer.invoke(IpcChannel.ModpackMods, id, category),
     contentUpdates: (id: string, category: InstallableCategory): Promise<ContentUpdate[]> =>

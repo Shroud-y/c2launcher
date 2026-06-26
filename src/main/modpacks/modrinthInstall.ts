@@ -100,21 +100,136 @@ export async function installModrinthPack(
 }
 
 /**
- * Installs a modpack from a local .mrpack file already on disk. Same flow
- * as the Modrinth download path, minus the listing icon (there's no
- * project to fetch one from).
+ * Installs a modpack from a local file already on disk. Two shapes are
+ * supported, detected by content rather than extension:
+ *   - a Modrinth `.mrpack` (has modrinth.index.json) → the Modrinth path;
+ *   - a plain `.zip` of a C² instance folder (the "share with a friend"
+ *     case) → recreate the instance from its files and c2instance.json.
+ * `fallbackName` (the file name, sans extension) names the instance when
+ * the archive carries no name of its own.
  */
-export async function installMrpackFromFile(
+export async function installModpackFromFile(
   buffer: Buffer,
+  fallbackName: string,
   report: PackInstallReporter
 ): Promise<Modpack> {
   let zip: AdmZip
   try {
     zip = new AdmZip(buffer)
   } catch {
-    throw new Error('Not a valid .mrpack file')
+    throw new Error('Not a valid modpack file')
   }
-  return installPackFromZip(zip, report, null)
+  if (zip.getEntry('modrinth.index.json') !== null) {
+    return installPackFromZip(zip, report, null)
+  }
+  return installInstanceZip(zip, fallbackName, report)
+}
+
+const INSTANCE_FILE = 'c2instance.json'
+
+interface C2InstanceData {
+  loader?: ModLoader | null
+  gameVersion?: string | null
+  loaderVersion?: string | null
+  memoryMb?: number
+  javaArgs?: string
+}
+
+const LOADERS: ModLoader[] = ['fabric', 'forge', 'quilt', 'neoforge', 'vanilla']
+
+/**
+ * The single top-level folder every entry sits under (e.g. when the user
+ * zips the instance folder itself rather than its contents), or '' when
+ * the files are already at the archive root.
+ */
+function commonTopFolder(zip: AdmZip): string {
+  const names = zip
+    .getEntries()
+    .map((e) => e.entryName.replace(/\\/g, '/'))
+    .filter((n) => n !== '')
+  if (names.length === 0) return ''
+  const first = names[0].split('/')[0]
+  if (first === '' || !names[0].includes('/')) return ''
+  const prefix = `${first}/`
+  return names.every((n) => n.startsWith(prefix)) ? prefix : ''
+}
+
+/** Parses a c2instance.json blob, ignoring anything malformed. */
+function parseInstanceData(raw: Buffer): C2InstanceData {
+  try {
+    const obj = JSON.parse(raw.toString('utf-8')) as Record<string, unknown>
+    const data: C2InstanceData = {}
+    if (typeof obj.loader === 'string' && (LOADERS as string[]).includes(obj.loader)) {
+      data.loader = obj.loader as ModLoader
+    }
+    if (typeof obj.gameVersion === 'string' && obj.gameVersion !== '') {
+      data.gameVersion = obj.gameVersion
+    }
+    if (typeof obj.loaderVersion === 'string' && obj.loaderVersion !== '') {
+      data.loaderVersion = obj.loaderVersion
+    }
+    if (typeof obj.memoryMb === 'number' && Number.isFinite(obj.memoryMb)) {
+      data.memoryMb = obj.memoryMb
+    }
+    if (typeof obj.javaArgs === 'string') data.javaArgs = obj.javaArgs
+    return data
+  } catch {
+    return {}
+  }
+}
+
+/**
+ * Recreates a local instance from a zipped C² instance folder. Loader and
+ * game version come from c2instance.json when present; without it the
+ * instance is created unassigned and the user picks a version in settings.
+ */
+async function installInstanceZip(
+  zip: AdmZip,
+  fallbackName: string,
+  report: PackInstallReporter
+): Promise<Modpack> {
+  const prefix = commonTopFolder(zip)
+  const name = prefix !== '' ? prefix.slice(0, -1) : fallbackName
+
+  const infoEntry = zip.getEntry(`${prefix}${INSTANCE_FILE}`)
+  const data = infoEntry !== null ? parseInstanceData(infoEntry.getData()) : {}
+
+  const pack = await createModpack({
+    name,
+    loader: data.loader ?? 'vanilla',
+    gameVersion: data.gameVersion ?? '',
+    loaderVersion: data.loaderVersion ?? null
+  })
+  // createModpack only takes loader/version; carry the rest over, and turn
+  // an unknown version into null so launch prompts for one instead of
+  // trying to install Minecraft "".
+  updateModpack(pack.id, {
+    gameVersion: data.gameVersion ?? null,
+    memoryMb: data.memoryMb ?? pack.memoryMb,
+    javaArgs: data.javaArgs ?? pack.javaArgs
+  })
+
+  const instanceDir = instanceDirFor(pack)
+  try {
+    const files = zip.getEntries().filter((e) => !e.isDirectory && e.entryName.startsWith(prefix))
+    let done = 0
+    for (const entry of files) {
+      const rel = entry.entryName.replace(/\\/g, '/').slice(prefix.length)
+      // c2instance.json is rewritten from the registry record — skip the copy.
+      if (rel === '' || rel === INSTANCE_FILE) continue
+      const dest = safeJoin(instanceDir, rel)
+      await mkdir(dirname(dest), { recursive: true })
+      await writeFile(dest, entry.getData())
+      done += 1
+      report(pack, (done / Math.max(files.length, 1)) * 100, `Files ${done}/${files.length}`)
+    }
+    report(pack, 100, 'Installed')
+    return pack
+  } catch (err) {
+    // Half-unpacked instances are useless — roll the record and folder back.
+    await deleteModpack(pack.id).catch(() => undefined)
+    throw err
+  }
 }
 
 /**

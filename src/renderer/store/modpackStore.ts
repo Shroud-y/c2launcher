@@ -22,8 +22,8 @@ interface ModpackState {
 
   load: () => Promise<void>
   create: (params: CreateModpackParams) => Promise<Modpack>
-  /** Opens a file dialog to import a local .mrpack; null if cancelled. */
-  importMrpack: () => Promise<Modpack | null>
+  /** Opens a file dialog to import a local .mrpack or instance .zip; null if cancelled. */
+  importModpack: () => Promise<Modpack | null>
   updateSettings: (id: string, settings: ModpackSettings) => Promise<void>
   /** Opens a file dialog (or clears) the instance icon. */
   setIcon: (id: string, clear: boolean) => Promise<void>
@@ -59,8 +59,8 @@ export const useModpackStore = create<ModpackState>((set, get) => ({
     return modpack
   },
 
-  importMrpack: async (): Promise<Modpack | null> => {
-    const modpack = await window.api.modpack.importMrpack()
+  importModpack: async (): Promise<Modpack | null> => {
+    const modpack = await window.api.modpack.importModpack()
     // Null means the file dialog was cancelled.
     if (modpack !== null) set({ modpacks: [...get().modpacks, modpack] })
     return modpack
