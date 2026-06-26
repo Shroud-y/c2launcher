@@ -6,7 +6,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.3]
+
 ### Added
+- Import a modpack from a plain `.zip` of a C² instance folder (alongside
+  Modrinth `.mrpack`), so instances can be shared between launchers.
+- Import mods, resource packs, shaders and data packs from local files via the
+  download button in the instance window.
+- Color scheme selection in Settings — Midnight, Ember, Amethyst and Teal —
+  with live preview cards; the choice persists across restarts.
 - Packaging via electron-builder: Windows NSIS installer, Linux AppImage and
   `.deb` (`pnpm dist`).
 - Launcher self-updating through GitHub Releases (electron-updater).

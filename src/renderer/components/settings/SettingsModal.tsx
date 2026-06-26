@@ -3,29 +3,12 @@ import { CloseIcon } from '../common/Icons'
 import { useModalStore } from '../../store/modalStore'
 import { useCloseAnimation } from '../../hooks/useCloseAnimation'
 import type { AppSettings } from '@shared/types'
+import { THEMES, applyTheme, getStoredThemeId } from '../../theme'
 import styles from './SettingsModal.module.css'
 
 function stripIpcPrefix(message: string): string {
   return message.replace(/^Error invoking remote method '[^']+': (?:\w*Error: )?/, '')
 }
-
-/**
- * Color-scheme options. Step 1 — placeholder palettes for the preview cards
- * only; selecting one does not yet repaint the launcher (wired in step 2).
- * `colors` drives the mini-interface mockup; real schemes replace these.
- */
-interface ThemeOption {
-  id: string
-  label: string
-  colors: { bg: string; panel: string; accent: string; border: string }
-}
-
-const THEME_OPTIONS: ThemeOption[] = [
-  { id: 'midnight', label: 'Midnight', colors: { bg: '#0a0a0a', panel: '#0f0f0f', accent: '#2f9c95', border: '#21262d' } },
-  { id: 'amethyst', label: 'Amethyst', colors: { bg: '#0d0a14', panel: '#14101f', accent: '#8b5cf6', border: '#2a2540' } },
-  { id: 'ember', label: 'Ember', colors: { bg: '#140a0a', panel: '#1c1010', accent: '#f97316', border: '#3a2420' } },
-  { id: 'slate', label: 'Slate', colors: { bg: '#0b0e12', panel: '#11161d', accent: '#3b82f6', border: '#1e2733' } }
-]
 
 export default function SettingsModal(): JSX.Element {
   const closeSettings = useModalStore((s) => s.closeSettings)
@@ -33,8 +16,12 @@ export default function SettingsModal(): JSX.Element {
 
   const [settings, setSettings] = useState<AppSettings | null>(null)
   const [javaError, setJavaError] = useState<string | null>(null)
-  // Placeholder selection — preview only, not persisted yet (step 2).
-  const [theme, setTheme] = useState('midnight')
+  const [theme, setTheme] = useState(getStoredThemeId)
+
+  function selectTheme(id: string): void {
+    setTheme(id)
+    applyTheme(id)
+  }
 
   useEffect(() => {
     void window.api.settings.get().then(setSettings)
@@ -76,14 +63,14 @@ export default function SettingsModal(): JSX.Element {
           <span className={styles.fieldLabel}>Color scheme</span>
           <span className={styles.hint}>Choose the launcher&apos;s color palette.</span>
           <div className={styles.themeGrid}>
-            {THEME_OPTIONS.map((t) => (
+            {THEMES.map((t) => (
               <button
                 key={t.id}
                 type="button"
                 className={theme === t.id ? `${styles.themeCard} ${styles.themeCardActive}` : styles.themeCard}
                 aria-pressed={theme === t.id}
                 aria-label={t.label}
-                onClick={() => setTheme(t.id)}
+                onClick={() => selectTheme(t.id)}
               >
                 <span className={styles.themePreview} style={{ background: t.colors.bg }}>
                   <span className={styles.themeTopbar} style={{ background: t.colors.panel }}>
