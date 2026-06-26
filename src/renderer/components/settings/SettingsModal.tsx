@@ -9,12 +9,32 @@ function stripIpcPrefix(message: string): string {
   return message.replace(/^Error invoking remote method '[^']+': (?:\w*Error: )?/, '')
 }
 
+/**
+ * Color-scheme options. Step 1 — placeholder palettes for the preview cards
+ * only; selecting one does not yet repaint the launcher (wired in step 2).
+ * `colors` drives the mini-interface mockup; real schemes replace these.
+ */
+interface ThemeOption {
+  id: string
+  label: string
+  colors: { bg: string; panel: string; accent: string; border: string }
+}
+
+const THEME_OPTIONS: ThemeOption[] = [
+  { id: 'midnight', label: 'Midnight', colors: { bg: '#0a0a0a', panel: '#0f0f0f', accent: '#2f9c95', border: '#21262d' } },
+  { id: 'amethyst', label: 'Amethyst', colors: { bg: '#0d0a14', panel: '#14101f', accent: '#8b5cf6', border: '#2a2540' } },
+  { id: 'ember', label: 'Ember', colors: { bg: '#140a0a', panel: '#1c1010', accent: '#f97316', border: '#3a2420' } },
+  { id: 'slate', label: 'Slate', colors: { bg: '#0b0e12', panel: '#11161d', accent: '#3b82f6', border: '#1e2733' } }
+]
+
 export default function SettingsModal(): JSX.Element {
   const closeSettings = useModalStore((s) => s.closeSettings)
   const { closing, requestClose } = useCloseAnimation(closeSettings)
 
   const [settings, setSettings] = useState<AppSettings | null>(null)
   const [javaError, setJavaError] = useState<string | null>(null)
+  // Placeholder selection — preview only, not persisted yet (step 2).
+  const [theme, setTheme] = useState('midnight')
 
   useEffect(() => {
     void window.api.settings.get().then(setSettings)
@@ -51,6 +71,50 @@ export default function SettingsModal(): JSX.Element {
           <CloseIcon />
         </button>
         <h2 className={styles.title}>Settings</h2>
+
+        <div className={styles.field}>
+          <span className={styles.fieldLabel}>Color scheme</span>
+          <span className={styles.hint}>Choose the launcher&apos;s color palette.</span>
+          <div className={styles.themeGrid}>
+            {THEME_OPTIONS.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                className={theme === t.id ? `${styles.themeCard} ${styles.themeCardActive}` : styles.themeCard}
+                aria-pressed={theme === t.id}
+                aria-label={t.label}
+                onClick={() => setTheme(t.id)}
+              >
+                <span className={styles.themePreview} style={{ background: t.colors.bg }}>
+                  <span className={styles.themeTopbar} style={{ background: t.colors.panel }}>
+                    <span className={styles.themeLogo} style={{ background: t.colors.accent }} />
+                  </span>
+                  <span className={styles.themeRow}>
+                    <span className={styles.themeRail} style={{ background: t.colors.panel }}>
+                      <span className={styles.themeRailIcon} style={{ background: t.colors.accent }} />
+                      <span className={styles.themeRailIcon} style={{ background: t.colors.accent }} />
+                    </span>
+                    <span className={styles.themeContent}>
+                      {[0, 1, 2, 3].map((i) => (
+                        <span key={i} className={styles.themeCardRow} style={{ background: t.colors.panel }}>
+                          <span className={styles.themeCardIcon} style={{ background: t.colors.accent }} />
+                          <span className={styles.themeCardLines}>
+                            <span className={styles.themeLineAccent} style={{ background: t.colors.accent }} />
+                            <span className={styles.themeLine} style={{ background: t.colors.border }} />
+                          </span>
+                        </span>
+                      ))}
+                    </span>
+                    <span className={styles.themePanel} style={{ background: t.colors.panel }}>
+                      <span className={styles.themeAvatar} style={{ background: t.colors.accent }} />
+                      <span className={styles.themeLine} style={{ background: t.colors.border }} />
+                    </span>
+                  </span>
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
 
         <div className={styles.field}>
           <span className={styles.fieldLabel}>Java</span>
