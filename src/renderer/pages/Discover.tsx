@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import CategoryTabs from '../components/discover/CategoryTabs'
 import SearchBar from '../components/discover/SearchBar'
 import SortFilter from '../components/discover/SortFilter'
+import Pagination from '../components/discover/Pagination'
 import SearchResultCard from '../components/discover/SearchResultCard'
 import { useDiscoverStore } from '../store/discoverStore'
 import { useModpackStore } from '../store/modpackStore'
@@ -119,11 +120,16 @@ export default function Discover(): JSX.Element {
       ) : results.length === 0 && error === null ? (
         <div className={styles.stateNote}>No results. Try a different search or filters.</div>
       ) : (
-        <div className={styles.grid}>
-          {results.map((result) => (
-            <SearchResultCard key={result.id} result={result} />
-          ))}
-        </div>
+        <>
+          <div className={styles.grid}>
+            {results.map((result) => (
+              <SearchResultCard key={result.id} result={result} />
+            ))}
+          </div>
+          <div className={styles.bottomPagination}>
+            <Pagination />
+          </div>
+        </>
       )}
     </div>
   )

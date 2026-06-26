@@ -1,0 +1,56 @@
+.pagination {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.page,
+.pageActive {
+  min-width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.page:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.pageActive {
+  background: var(--accent);
+  color: var(--text-on-accent);
+}
+
+.ellipsis {
+  color: var(--text-muted);
+  padding: 0 4px;
+  cursor: pointer;
+}
+
+.ellipsis:hover {
+  color: var(--text-primary);
+}
+
+/* Jump-to-page field shown when the … is clicked. */
+.jumpInput {
+  width: 44px;
+  height: 30px;
+  padding: 0 6px;
+  border-radius: 8px;
+  border: 1px solid var(--accent);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 13px;
+  text-align: center;
+  outline: none;
+  -moz-appearance: textfield;
+}
+
+.jumpInput::-webkit-inner-spin-button,
+.jumpInput::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
