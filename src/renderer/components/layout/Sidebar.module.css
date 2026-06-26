@@ -29,8 +29,8 @@
   width: 44px;
   height: 44px;
   border-radius: var(--icon-radius);
-  color: #ffffff;
-  box-shadow: 0 0 10px rgba(46, 160, 67, 0.5);
+  color: var(--text-on-dark);
+  box-shadow: 0 0 10px var(--sidebar-glow);
   transition: background 0.15s, filter 0.15s;
 }
 

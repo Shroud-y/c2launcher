@@ -38,9 +38,11 @@ export function CompassIcon({ size = 22, className }: IconProps): JSX.Element {
 export function WindIcon({ size = 24, className }: IconProps): JSX.Element {
   return (
     <svg {...svgProps(size, className)}>
-      <path d="M3 8h9a2.5 2.5 0 1 0-2.4-3.2" />
-      <path d="M3 12h14a2.5 2.5 0 1 1-2.4 3.2" />
-      <path d="M3 16h7a2 2 0 1 1-1.9 2.6" />
+      <g transform="scale(1 -1) translate(0 -24)">
+        <path d="M3 8h9a2.5 2.5 0 1 0-2.4-3.2" />
+        <path d="M3 12h14a2.5 2.5 0 1 1-2.4 3.2" />
+        <path d="M3 16h7a2 2 0 1 1-1.9 2.6" />
+      </g>
     </svg>
   )
 }
@@ -83,10 +85,10 @@ export function GitHubIcon({ size = 22, className }: IconProps): JSX.Element {
 export function GridIcon({ size = 20, className }: IconProps): JSX.Element {
   return (
     <svg {...svgProps(size, className)}>
-      <rect x="4" y="4" width="7" height="7" rx="1" />
-      <rect x="13" y="4" width="7" height="7" rx="1" />
-      <rect x="4" y="13" width="7" height="7" rx="1" />
-      <rect x="13" y="13" width="7" height="7" rx="1" />
+      <rect x="4" y="4" width="6" height="6" rx="1" />
+      <rect x="14" y="4" width="6" height="6" rx="1" />
+      <rect x="4" y="14" width="6" height="6" rx="1" />
+      <rect x="14" y="14" width="6" height="6" rx="1" />
     </svg>
   )
 }

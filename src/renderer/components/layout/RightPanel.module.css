@@ -149,5 +149,5 @@
 
 .error {
   font-size: 12px;
-  color: #f85149;
+  color: var(--danger);
 }

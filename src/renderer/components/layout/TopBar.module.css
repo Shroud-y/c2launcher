@@ -59,6 +59,6 @@
 }
 
 .closeButton:hover {
-  background: #e81123;
-  color: #ffffff;
+  background: var(--window-close);
+  color: var(--text-on-dark);
 }

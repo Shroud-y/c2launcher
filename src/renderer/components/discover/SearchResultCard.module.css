@@ -77,7 +77,7 @@
 
 .installError {
   font-size: 11px;
-  color: #f85149;
+  color: var(--danger);
 }
 
 .actions {

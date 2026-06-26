@@ -34,6 +34,8 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  margin-right: -5px;
+  padding-right: 5px;
 }
 
 .categoryItem {
@@ -128,14 +130,14 @@
 
 /* Loader brand tints — applied on top of optItem/optItemActive. */
 .loader_fabric {
-  color: #c8a789;
+  color: var(--loader-fabric);
 }
 .loader_forge {
-  color: #8893c4;
+  color: var(--loader-forge);
 }
 .loader_quilt {
-  color: #b083e0;
+  color: var(--loader-quilt);
 }
 .loader_neoforge {
-  color: #e8833a;
+  color: var(--loader-neoforge);
 }

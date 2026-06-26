@@ -78,7 +78,6 @@
   padding: 6px;
   border-radius: 10px;
   background: var(--bg-secondary);
-  border: 1px solid var(--border);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
   transform-origin: top;
   animation: dropdownIn 0.16s ease;

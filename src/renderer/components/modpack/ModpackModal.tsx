@@ -595,10 +595,13 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
                 type="range"
                 min={1024}
                 max={16384}
-                step={512}
+                step={64}
                 value={memoryMb}
                 onChange={(e) => setMemoryMb(Number(e.target.value))}
                 className={styles.slider}
+                style={{
+                  background: `linear-gradient(to right, var(--accent) 0%, var(--accent) ${((memoryMb - 1024) / (16384 - 1024)) * 100}%, var(--border) ${((memoryMb - 1024) / (16384 - 1024)) * 100}%, var(--border) 100%)`,
+                }}
                 disabled={localPack === null}
               />
             </label>
