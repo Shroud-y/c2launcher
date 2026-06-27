@@ -1,9 +1,15 @@
 import { useEffect, useState } from 'react'
-import { CloseIcon } from '../common/Icons'
+import { CloseIcon, GearIcon } from '../common/Icons'
 import { useModalStore } from '../../store/modalStore'
 import { useCloseAnimation } from '../../hooks/useCloseAnimation'
 import type { AppSettings } from '@shared/types'
-import { THEMES, applyTheme, getStoredThemeId } from '../../theme'
+import {
+  THEMES,
+  applyTheme,
+  getStoredThemeId,
+  getStoredCustomSwatches,
+  buildCustomTheme
+} from '../../theme'
 import styles from './SettingsModal.module.css'
 
 function stripIpcPrefix(message: string): string {
@@ -12,7 +18,12 @@ function stripIpcPrefix(message: string): string {
 
 export default function SettingsModal(): JSX.Element {
   const closeSettings = useModalStore((s) => s.closeSettings)
+  const openCustomTheme = useModalStore((s) => s.openCustomTheme)
   const { closing, requestClose } = useCloseAnimation(closeSettings)
+
+  // Presets plus the user's editable Custom theme in the fourth slot. Rebuilt
+  // from storage on each mount so edits made in the editor show up here.
+  const themes = [...THEMES, buildCustomTheme(getStoredCustomSwatches())]
 
   const [settings, setSettings] = useState<AppSettings | null>(null)
   const [javaError, setJavaError] = useState<string | null>(null)
@@ -63,9 +74,20 @@ export default function SettingsModal(): JSX.Element {
           <span className={styles.fieldLabel}>Color scheme</span>
           <span className={styles.hint}>Choose the launcher&apos;s color palette.</span>
           <div className={styles.themeGrid}>
-            {THEMES.map((t) => (
+            {themes.map((t) => (
+              <div key={t.id} className={styles.themeCardWrap}>
+              {t.custom === true && (
+                <button
+                  type="button"
+                  className={styles.themeEditButton}
+                  aria-label="Edit custom colors"
+                  title="Edit colors"
+                  onClick={openCustomTheme}
+                >
+                  <GearIcon size={14} />
+                </button>
+              )}
               <button
-                key={t.id}
                 type="button"
                 className={theme === t.id ? `${styles.themeCard} ${styles.themeCardActive}` : styles.themeCard}
                 aria-pressed={theme === t.id}
@@ -99,6 +121,7 @@ export default function SettingsModal(): JSX.Element {
                   </span>
                 </span>
               </button>
+              </div>
             ))}
           </div>
         </div>

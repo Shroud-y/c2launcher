@@ -13,6 +13,8 @@ export interface Theme {
   colors: { bg: string; panel: string; accent: string; border: string }
   /** CSS variable overrides written to document.documentElement. */
   vars: Record<string, string>
+  /** True for the user-editable Custom theme (renders the gear/edit button). */
+  custom?: boolean
 }
 
 interface Palette {
@@ -56,6 +58,8 @@ function theme(id: string, label: string, p: Palette): Theme {
   }
 }
 
+/** Built-in presets. The fourth slot is the user's editable Custom theme,
+ *  produced at runtime by buildCustomTheme(). */
 export const THEMES: Theme[] = [
   theme('midnight', 'Midnight', {
     bg: '#0a0a0a',
@@ -79,17 +83,6 @@ export const THEMES: Theme[] = [
     onAccent: '#16110d',
     glow: 'rgba(125, 125, 125, 0.5)'
   }),
-  theme('amethyst', 'Amethyst', {
-    bg: '#141019',
-    card: '#221a2e',
-    accent: '#a77bff',
-    text: '#ece5f5',
-    muted: '#b4a9c6',
-    hover: '#2e2440',
-    border: '#322847',
-    onAccent: '#141019',
-    glow: 'rgba(167, 123, 255, 0.5)'
-  }),
   theme('teal', 'Teal', {
     bg: '#1c2422',
     card: '#29332f',
@@ -103,20 +96,127 @@ export const THEMES: Theme[] = [
   })
 ]
 
+/* ----------------------------- Custom theme ----------------------------- */
+
+export const CUSTOM_THEME_ID = 'custom'
+
+/** The four colors the user picks; the rest of the palette is derived. */
+export interface CustomSwatches {
+  bg: string
+  panel: string
+  accent: string
+  border: string
+}
+
+/** Starting point for a fresh custom theme (the old Amethyst palette, so the
+ *  fourth slot looks identical until the user edits it). */
+export const DEFAULT_CUSTOM_SWATCHES: CustomSwatches = {
+  bg: '#141019',
+  panel: '#221a2e',
+  accent: '#a77bff',
+  border: '#322847'
+}
+
+/** Relative luminance (0–1) of a #rrggbb / #rgb color, sRGB-weighted. */
+function luminance(hex: string): number {
+  const h = hex.replace('#', '')
+  const full = h.length === 3 ? h.split('').map((c) => c + c).join('') : h
+  const n = parseInt(full, 16)
+  const r = (n >> 16) & 0xff
+  const g = (n >> 8) & 0xff
+  const b = n & 0xff
+  return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255
+}
+
+/** Pick a readable foreground (near-black or near-white) for a background. */
+function contrastOn(hex: string): string {
+  return luminance(hex) > 0.55 ? '#141019' : '#f5f5f5'
+}
+
+function hexToRgba(hex: string, alpha: number): string {
+  const h = hex.replace('#', '')
+  const full = h.length === 3 ? h.split('').map((c) => c + c).join('') : h
+  const n = parseInt(full, 16)
+  return `rgba(${(n >> 16) & 0xff}, ${(n >> 8) & 0xff}, ${n & 0xff}, ${alpha})`
+}
+
+/** Expand four swatches into the full palette using contrast-aware defaults. */
+function deriveCustomPalette(s: CustomSwatches): Palette {
+  const text = contrastOn(s.bg)
+  return {
+    bg: s.bg,
+    card: s.panel,
+    accent: s.accent,
+    text,
+    muted: `color-mix(in srgb, ${text}, ${s.bg} 45%)`,
+    hover: `color-mix(in srgb, ${s.panel}, ${text} 12%)`,
+    border: s.border,
+    onAccent: contrastOn(s.accent),
+    glow: hexToRgba(s.accent, 0.5)
+  }
+}
+
+/** Build the runtime Custom theme from a set of swatches. */
+export function buildCustomTheme(s: CustomSwatches): Theme {
+  const t = theme(CUSTOM_THEME_ID, 'Custom', deriveCustomPalette(s))
+  return { ...t, custom: true }
+}
+
+const CUSTOM_KEY = 'c2-custom-colors'
+
+export function getStoredCustomSwatches(): CustomSwatches {
+  try {
+    const raw = localStorage.getItem(CUSTOM_KEY)
+    if (raw !== null) {
+      const parsed = JSON.parse(raw) as Partial<CustomSwatches>
+      return { ...DEFAULT_CUSTOM_SWATCHES, ...parsed }
+    }
+  } catch {
+    /* fall through to default */
+  }
+  return { ...DEFAULT_CUSTOM_SWATCHES }
+}
+
+export function setStoredCustomSwatches(s: CustomSwatches): void {
+  localStorage.setItem(CUSTOM_KEY, JSON.stringify(s))
+}
+
+/* -------------------------------- Apply --------------------------------- */
+
 const STORAGE_KEY = 'c2-theme'
 const DEFAULT_THEME = 'midnight'
 
-export function getStoredThemeId(): string {
-  const id = localStorage.getItem(STORAGE_KEY)
-  return id !== null && THEMES.some((t) => t.id === id) ? id : DEFAULT_THEME
+function isValidId(id: string): boolean {
+  return id === CUSTOM_THEME_ID || THEMES.some((t) => t.id === id)
 }
 
-/** Writes a theme's variables to :root and remembers the choice. */
-export function applyTheme(id: string): void {
-  const t = THEMES.find((x) => x.id === id) ?? THEMES[0]
+export function getStoredThemeId(): string {
+  const id = localStorage.getItem(STORAGE_KEY)
+  return id !== null && isValidId(id) ? id : DEFAULT_THEME
+}
+
+/** Resolve an id to a concrete Theme (custom reads its stored swatches). */
+function resolveTheme(id: string): Theme {
+  if (id === CUSTOM_THEME_ID) return buildCustomTheme(getStoredCustomSwatches())
+  return THEMES.find((x) => x.id === id) ?? THEMES[0]
+}
+
+function writeVars(t: Theme): void {
   const root = document.documentElement
   for (const [key, value] of Object.entries(t.vars)) {
     root.style.setProperty(key, value)
   }
-  localStorage.setItem(STORAGE_KEY, t.id)
+}
+
+/** Writes a theme's variables to :root and remembers the choice. */
+export function applyTheme(id: string): void {
+  const t = resolveTheme(id)
+  writeVars(t)
+  localStorage.setItem(STORAGE_KEY, id === CUSTOM_THEME_ID ? CUSTOM_THEME_ID : t.id)
+}
+
+/** Live-preview swatches on :root without persisting the selection. Used while
+ *  the custom-theme editor is open so changes are visible immediately. */
+export function previewCustomSwatches(s: CustomSwatches): void {
+  writeVars(buildCustomTheme(s))
 }

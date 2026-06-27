@@ -6,6 +6,7 @@ import RightPanel from './components/layout/RightPanel'
 import ModpackModal from './components/modpack/ModpackModal'
 import CreateModpackModal from './components/modpack/CreateModpackModal'
 import SettingsModal from './components/settings/SettingsModal'
+import CustomThemeModal from './components/settings/CustomThemeModal'
 import ProjectModal from './components/discover/ProjectModal'
 import Home from './pages/Home'
 import Discover from './pages/Discover'
@@ -19,6 +20,7 @@ export default function App(): JSX.Element {
   const openModpackId = useModalStore((s) => s.openModpackId)
   const isCreateOpen = useModalStore((s) => s.isCreateOpen)
   const isSettingsOpen = useModalStore((s) => s.isSettingsOpen)
+  const isCustomThemeOpen = useModalStore((s) => s.isCustomThemeOpen)
   const discoverResult = useModalStore((s) => s.discoverResult)
   const initAuth = useAuthStore((s) => s.init)
   const loadModpacks = useModpackStore((s) => s.load)
@@ -56,6 +58,7 @@ export default function App(): JSX.Element {
         {openModpackId !== null && <ModpackModal modpackId={openModpackId} />}
         {isCreateOpen && <CreateModpackModal />}
         {isSettingsOpen && <SettingsModal />}
+        {isCustomThemeOpen && <CustomThemeModal />}
         {discoverResult !== null && (
           <ProjectModal key={discoverResult.id} result={discoverResult} />
         )}

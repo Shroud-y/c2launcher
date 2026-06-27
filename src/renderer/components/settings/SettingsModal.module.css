@@ -44,6 +44,7 @@
   max-width: calc(100vw - 32px);
   max-height: calc(100vh - 32px);
   overflow-y: auto;
+  scrollbar-width: none;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -52,6 +53,10 @@
   padding: 24px;
   border-right: 5px solid var(--bg-secondary);
   background-clip: padding-box;
+}
+
+.modal::-webkit-scrollbar {
+  display: none;
 }
 
 .closeButton {
@@ -193,6 +198,47 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
+}
+
+.themeCardWrap {
+  position: relative;
+  display: flex;
+}
+
+.themeCardWrap .themeCard {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Gear/edit affordance on the custom theme card — revealed on hover. */
+.themeEditButton {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  opacity: 0;
+  transform: scale(0.9);
+  transition: opacity 0.15s, transform 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.themeCardWrap:hover .themeEditButton,
+.themeEditButton:focus-visible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.themeEditButton:hover {
+  color: var(--accent);
+  border-color: var(--accent);
 }
 
 .themeCard {
