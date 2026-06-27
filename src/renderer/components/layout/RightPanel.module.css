@@ -57,16 +57,29 @@
   bottom: 112px;
   left: 14px;
   right: 14px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
   pointer-events: none;
 }
 
 .divider {
+  position: absolute;
+  left: 0;
+  right: 0;
   height: 1px;
-  width: 100%;
   background: var(--text-primary);
+}
+
+.divider:nth-child(1) {
+  top: 0;
+}
+
+/* Snap the centered line to a whole pixel so it doesn't antialias across
+   two rows (which made it look thicker than the outer two). */
+.divider:nth-child(2) {
+  top: round(50%, 1px);
+}
+
+.divider:nth-child(3) {
+  bottom: 0;
 }
 
 /* Short teal divider, vertically centered in the gap left of the card. */

@@ -47,6 +47,31 @@ export function WindIcon({ size = 24, className }: IconProps): JSX.Element {
   )
 }
 
+/** C² Launcher mark: a teal crescent + dot. Filled with currentColor so it
+ *  adapts to the active theme's accent. The crescent is the outer disc with an
+ *  offset inner disc masked out. */
+export function LogoIcon({ size = 40, className }: IconProps): JSX.Element {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 1024 1024"
+      fill="currentColor"
+      className={className}
+    >
+      <defs>
+        <mask id="logo-crescent">
+          <rect width="1024" height="1024" fill="black" />
+          <circle cx="445" cy="430" r="310" fill="white" />
+          <circle cx="605" cy="545" r="285" fill="black" />
+        </mask>
+      </defs>
+      <rect width="1024" height="1024" mask="url(#logo-crescent)" />
+      <circle cx="685" cy="680" r="56" />
+    </svg>
+  )
+}
+
 export function PlusIcon({ size = 22, className }: IconProps): JSX.Element {
   return (
     <svg {...svgProps(size, className)}>

@@ -16,10 +16,10 @@ export interface Theme {
 }
 
 interface Palette {
-  bg: string // Фон
-  card: string // Картка
-  accent: string // Акцент
-  text: string // Текст
+  bg: string
+  card: string 
+  accent: string 
+  text: string 
   muted: string
   hover: string
   border: string
@@ -33,9 +33,11 @@ function buildVars(p: Palette): Record<string, string> {
     '--bg-secondary': p.card,
     '--bg-hover': p.hover,
     '--accent': p.accent,
-    '--accent-soft': p.accent,
-    '--accent-mint': p.accent,
-    '--accent-light': p.accent,
+    // Lighter variants derived from the accent so the per-position icon tints
+    // (and the matching instance-name color) stay distinct on every theme.
+    '--accent-soft': `color-mix(in srgb, ${p.accent}, white 12%)`,
+    '--accent-mint': `color-mix(in srgb, ${p.accent}, white 28%)`,
+    '--accent-light': `color-mix(in srgb, ${p.accent}, white 55%)`,
     '--trend-green': p.accent,
     '--text-primary': p.text,
     '--text-muted': p.muted,
@@ -67,15 +69,15 @@ export const THEMES: Theme[] = [
     glow: 'rgba(46, 160, 67, 0.5)'
   }),
   theme('ember', 'Ember', {
-    bg: '#16110d',
-    card: '#261c14',
-    accent: '#ff7a3d',
+    bg: '#282828',
+    card: '#434343',
+    accent: '#2f9c95',
     text: '#f2e6dc',
-    muted: '#b9a696',
-    hover: '#33261b',
-    border: '#3a2c20',
+    muted: '#c7c7c7',
+    hover: '#6e6e6e',
+    border: '#595959',
     onAccent: '#16110d',
-    glow: 'rgba(255, 122, 61, 0.5)'
+    glow: 'rgba(125, 125, 125, 0.5)'
   }),
   theme('amethyst', 'Amethyst', {
     bg: '#141019',

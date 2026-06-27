@@ -18,8 +18,7 @@
 .logo {
   width: 40px;
   height: 40px;
-  border-radius: 50%;
-  object-fit: cover;
+  color: var(--accent);
   transform: translate(4px, 4px);
 }
 
