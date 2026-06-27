@@ -70,7 +70,7 @@ export const THEMES: Theme[] = [
   }),
   theme('ember', 'Ember', {
     bg: '#282828',
-    card: '#434343',
+    card: '#313131',
     accent: '#2f9c95',
     text: '#f2e6dc',
     muted: '#c7c7c7',

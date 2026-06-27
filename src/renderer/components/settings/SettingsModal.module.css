@@ -50,6 +50,8 @@
   background: var(--bg-secondary);
   border-radius: var(--card-radius);
   padding: 24px;
+  border-right: 5px solid var(--bg-secondary);
+  background-clip: padding-box;
 }
 
 .closeButton {
