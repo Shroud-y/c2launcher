@@ -51,6 +51,15 @@ import type { ChildProcess } from 'child_process'
 const busy = new Set<string>() // installing or running
 const runningProcesses = new Map<string, ChildProcess>()
 
+/**
+ * True while any modpack is installing or running. Other subsystems (e.g.
+ * the data-folder migration) use this to refuse operations that would move
+ * or delete files out from under a live game.
+ */
+export function hasRunningGames(): boolean {
+  return busy.size > 0
+}
+
 function broadcast(channel: IpcChannel, payload: unknown): void {
   for (const win of BrowserWindow.getAllWindows()) {
     win.webContents.send(channel, payload)

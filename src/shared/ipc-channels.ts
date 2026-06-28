@@ -45,6 +45,7 @@ export enum IpcChannel {
   UpdateInstall = 'update:install',
 
   // Main → renderer events
+  SettingsDataMigrateProgress = 'settings:data-migrate-progress',
   ModpackInstallProgress = 'modpack:install-progress',
   ModpackGameLog = 'modpack:game-log',
   ModpackGameState = 'modpack:game-state',

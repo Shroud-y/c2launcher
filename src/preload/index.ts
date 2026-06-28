@@ -4,6 +4,8 @@ import type {
   AppSettings,
   ContentUpdate,
   CreateModpackParams,
+  DataMigrateProgress,
+  DataMigrateResult,
   GameLogLine,
   GameState,
   InstallableCategory,
@@ -100,10 +102,13 @@ const api = {
     openDataDir: (): Promise<void> => ipcRenderer.invoke(IpcChannel.SettingsOpenDataDir),
     chooseJava: (): Promise<AppSettings> => ipcRenderer.invoke(IpcChannel.SettingsChooseJava),
     clearJava: (): Promise<AppSettings> => ipcRenderer.invoke(IpcChannel.SettingsClearJava),
-    chooseDataDir: (): Promise<void> => ipcRenderer.invoke(IpcChannel.SettingsChooseDataDir),
+    chooseDataDir: (): Promise<DataMigrateResult> =>
+      ipcRenderer.invoke(IpcChannel.SettingsChooseDataDir),
     resetDataDir: (): Promise<void> => ipcRenderer.invoke(IpcChannel.SettingsResetDataDir),
     setGpuPref: (enabled: boolean): Promise<AppSettings> =>
-      ipcRenderer.invoke(IpcChannel.SettingsSetGpuPref, enabled)
+      ipcRenderer.invoke(IpcChannel.SettingsSetGpuPref, enabled),
+    onDataMigrateProgress: (cb: (p: DataMigrateProgress) => void): (() => void) =>
+      subscribe(IpcChannel.SettingsDataMigrateProgress, cb)
   },
   updater: {
     install: (): Promise<void> => ipcRenderer.invoke(IpcChannel.UpdateInstall),
