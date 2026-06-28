@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { CloseIcon, GearIcon } from '../common/Icons'
 import { useModalStore } from '../../store/modalStore'
 import { useCloseAnimation } from '../../hooks/useCloseAnimation'
-import type { AppSettings } from '@shared/types'
+import type { AppSettings, DataMigrateProgress } from '@shared/types'
 import {
   THEMES,
   applyTheme,
@@ -27,6 +27,9 @@ export default function SettingsModal(): JSX.Element {
 
   const [settings, setSettings] = useState<AppSettings | null>(null)
   const [javaError, setJavaError] = useState<string | null>(null)
+  const [dataError, setDataError] = useState<string | null>(null)
+  const [migrating, setMigrating] = useState(false)
+  const [migrateProgress, setMigrateProgress] = useState<DataMigrateProgress | null>(null)
   const [theme, setTheme] = useState(getStoredThemeId)
 
   function selectTheme(id: string): void {
@@ -37,6 +40,26 @@ export default function SettingsModal(): JSX.Element {
   useEffect(() => {
     void window.api.settings.get().then(setSettings)
   }, [])
+
+  // Live copy progress while data is moved to a new folder.
+  useEffect(() => window.api.settings.onDataMigrateProgress(setMigrateProgress), [])
+
+  async function changeDataDir(): Promise<void> {
+    setDataError(null)
+    setMigrating(true)
+    try {
+      const result = await window.api.settings.chooseDataDir()
+      // 'ok' relaunches the app; 'canceled' just closes the dialogs.
+      if (result.status === 'error') {
+        setDataError(result.message ?? 'Could not change the data folder')
+      }
+    } catch (err) {
+      setDataError(err instanceof Error ? stripIpcPrefix(err.message) : 'Could not change the data folder')
+    } finally {
+      setMigrating(false)
+      setMigrateProgress(null)
+    }
+  }
 
   async function chooseJava(): Promise<void> {
     setJavaError(null)
@@ -56,6 +79,11 @@ export default function SettingsModal(): JSX.Element {
     if (settings === null) return
     setSettings(await window.api.settings.setGpuPref(!settings.preferDedicatedGpu))
   }
+
+  const migratePct =
+    migrateProgress !== null && migrateProgress.totalBytes > 0
+      ? Math.min(100, Math.round((migrateProgress.copiedBytes / migrateProgress.totalBytes) * 100))
+      : 0
 
   return (
     <div className={`${styles.overlay} ${closing ? styles.closing : ''}`} onClick={requestClose}>
@@ -172,14 +200,15 @@ export default function SettingsModal(): JSX.Element {
         <div className={styles.field}>
           <span className={styles.fieldLabel}>Data folder</span>
           <span className={styles.hint}>
-            Where modpack instances, game files and launcher config live. Changing it restarts the
-            launcher; existing instances stay in the old folder.
+            Where modpack instances and game files live. When you change it, the launcher offers to
+            move or copy your instances to the new folder, then restarts.
           </span>
           <code className={styles.path}>{settings?.dataDir ?? '…'}</code>
           <div className={styles.buttonRow}>
             <button
               type="button"
               className={styles.secondaryButton}
+              disabled={migrating}
               onClick={() => void window.api.settings.openDataDir()}
             >
               Open folder
@@ -187,7 +216,8 @@ export default function SettingsModal(): JSX.Element {
             <button
               type="button"
               className={styles.secondaryButton}
-              onClick={() => void window.api.settings.chooseDataDir()}
+              disabled={migrating}
+              onClick={() => void changeDataDir()}
             >
               Change…
             </button>
@@ -195,12 +225,29 @@ export default function SettingsModal(): JSX.Element {
               <button
                 type="button"
                 className={styles.secondaryButton}
+                disabled={migrating}
                 onClick={() => void window.api.settings.resetDataDir()}
               >
                 Reset to default
               </button>
             )}
           </div>
+          {migrateProgress !== null && (
+            <div className={styles.progress}>
+              <div className={styles.progressTrack}>
+                <div className={styles.progressFill} style={{ width: `${migratePct}%` }} />
+              </div>
+              <div className={styles.progressText}>
+                <span className={styles.progressFile}>
+                  {migrateProgress.currentFile === ''
+                    ? 'Preparing…'
+                    : `Copying ${migrateProgress.currentFile}`}
+                </span>
+                <span>{`${migratePct}%`}</span>
+              </div>
+            </div>
+          )}
+          {dataError !== null && <span className={styles.error}>{dataError}</span>}
         </div>
       </div>
     </div>
