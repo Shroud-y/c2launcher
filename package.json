@@ -1,6 +1,6 @@
 {
   "name": "c2-launcher",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "C² launcher",
   "main": "out/main/index.js",
   "author": "C² contributors",
