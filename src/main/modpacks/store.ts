@@ -256,6 +256,19 @@ export async function deleteModpack(id: string): Promise<void> {
   )
 }
 
+// Coalesces concurrent calls into a single run: the renderer loads the
+// modpack list from several effects at once (and React StrictMode double-
+// fires them in dev), which otherwise let two adoptions read the same empty
+// registry and add every unknown folder twice.
+let adoptionInFlight: Promise<void> | null = null
+
+export function adoptUnknownInstances(): Promise<void> {
+  adoptionInFlight ??= runAdoption().finally(() => {
+    adoptionInFlight = null
+  })
+  return adoptionInFlight
+}
+
 /**
  * Adopts instance folders the registry does not know about — copied
  * instances, folders renamed by hand, or instances moved from another
@@ -263,7 +276,7 @@ export async function deleteModpack(id: string): Promise<void> {
  * from a c2instance.json when present, otherwise stay unassigned until
  * the user picks a version in settings.
  */
-export async function adoptUnknownInstances(): Promise<void> {
+async function runAdoption(): Promise<void> {
   const root = instancesRoot()
   if (!existsSync(root)) return
 

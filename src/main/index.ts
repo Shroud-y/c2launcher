@@ -9,6 +9,14 @@ import { registerDiscoverIpc } from './ipc/discover'
 import { registerUpdateIpc } from './ipc/update'
 import { initAutoUpdater } from './updater'
 
+// Pin the data folder to a clean, shell-friendly name. productName is
+// "C² Launcher" (kept for the installer and window title), which would
+// otherwise put userData under "~/.config/C² Launcher" — the "²" and
+// space make it awkward to cd into. This must run before anything reads
+// userData/getDataDir(), or the default path gets baked in at the old
+// location.
+app.setPath('userData', join(app.getPath('appData'), 'c2launcher'))
+
 function createWindow(): void {
   const win = new BrowserWindow({
     width: 1280,

@@ -54,6 +54,27 @@ export interface AppSettings {
   preferDedicatedGpu: boolean
 }
 
+/** Streamed to the renderer while game data is copied to a new data folder. */
+export interface DataMigrateProgress {
+  /** Bytes copied so far across instances/ and minecraft/. */
+  copiedBytes: number
+  /** Total bytes to copy, known before copying starts. */
+  totalBytes: number
+  /** Path of the file being copied right now, relative to the source folder. */
+  currentFile: string
+}
+
+/**
+ * Outcome of a data-folder change (see SettingsChooseDataDir). A successful
+ * move/copy/skip relaunches the app, so 'ok' never actually reaches the
+ * renderer; 'canceled' means the user backed out and 'error' carries a
+ * human-readable message to surface in the UI.
+ */
+export interface DataMigrateResult {
+  status: 'ok' | 'canceled' | 'error'
+  message?: string
+}
+
 export type InstallPhase =
   | 'manifest'
   | 'client'

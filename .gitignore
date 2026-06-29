@@ -5,3 +5,5 @@ dist/
 .DS_Store
 *.tsbuildinfo
 bug-hunter.md
+.claude/
+claude*
