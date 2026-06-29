@@ -8,6 +8,17 @@ import { registerSettingsIpc } from './ipc/settings'
 import { registerDiscoverIpc } from './ipc/discover'
 import { registerUpdateIpc } from './ipc/update'
 import { initAutoUpdater } from './updater'
+import { createTray } from './tray'
+
+// Module-level handle to the main window so the tray (and other main-process
+// code) can show/hide it. Cleared on 'closed' so callers can detect a
+// destroyed window and recreate it.
+let mainWindow: BrowserWindow | null = null
+
+/** The main window, or null if it has been closed/destroyed. */
+export function getMainWindow(): BrowserWindow | null {
+  return mainWindow
+}
 
 // Pin the data folder to a clean, shell-friendly name. productName is
 // "C² Launcher" (kept for the installer and window title), which would
@@ -17,7 +28,7 @@ import { initAutoUpdater } from './updater'
 // location.
 app.setPath('userData', join(app.getPath('appData'), 'c2launcher'))
 
-function createWindow(): void {
+export function createWindow(): void {
   const win = new BrowserWindow({
     width: 1280,
     height: 760,
@@ -33,6 +44,11 @@ function createWindow(): void {
       nodeIntegration: false,
       sandbox: false
     }
+  })
+
+  mainWindow = win
+  win.on('closed', () => {
+    if (mainWindow === win) mainWindow = null
   })
 
   win.on('ready-to-show', () => win.show())
@@ -61,6 +77,7 @@ app.whenReady().then(() => {
   registerDiscoverIpc()
   registerUpdateIpc()
   createWindow()
+  createTray()
   initAutoUpdater()
 
   app.on('activate', () => {

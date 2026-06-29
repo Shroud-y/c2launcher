@@ -80,6 +80,11 @@ export default function SettingsModal(): JSX.Element {
     setSettings(await window.api.settings.setGpuPref(!settings.preferDedicatedGpu))
   }
 
+  async function toggleMinimizeToTray(): Promise<void> {
+    if (settings === null) return
+    setSettings(await window.api.settings.setMinimizeToTray(!settings.minimizeToTrayOnLaunch))
+  }
+
   const migratePct =
     migrateProgress !== null && migrateProgress.totalBytes > 0
       ? Math.min(100, Math.round((migrateProgress.copiedBytes / migrateProgress.totalBytes) * 100))
@@ -194,6 +199,29 @@ export default function SettingsModal(): JSX.Element {
           <span className={styles.hint}>
             On hybrid-graphics laptops, tells Windows to run the game on the high-performance GPU
             instead of the integrated one. Applied on next launch.
+          </span>
+        </div>
+
+        <div className={styles.field}>
+          <div className={styles.toggleHeader}>
+            <span className={styles.fieldLabel}>Minimize to tray on launch</span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={settings?.minimizeToTrayOnLaunch ?? true}
+              aria-label="Minimize to tray on launch"
+              className={
+                settings?.minimizeToTrayOnLaunch !== false
+                  ? `${styles.switch} ${styles.switchOn}`
+                  : styles.switch
+              }
+              disabled={settings === null}
+              onClick={() => void toggleMinimizeToTray()}
+            />
+          </div>
+          <span className={styles.hint}>
+            Hides the launcher window to the system tray when the game starts. Reopen it from the
+            tray icon.
           </span>
         </div>
 

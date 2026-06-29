@@ -1,6 +1,7 @@
 .overlay {
   position: fixed;
   inset: 0;
+  -webkit-app-region: no-drag;
   background: var(--overlay);
   display: flex;
   align-items: center;
@@ -51,6 +52,7 @@
 
 .closeButton {
   position: absolute;
+  -webkit-app-region: no-drag;
   top: 12px;
   right: 12px;
   display: flex;

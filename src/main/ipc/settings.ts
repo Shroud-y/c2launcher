@@ -10,6 +10,7 @@ import {
   getSettings,
   setDataDirOverride,
   setJavaOverride,
+  setMinimizeToTrayOnLaunch,
   setPreferDedicatedGpu
 } from '../settings/store'
 import {
@@ -221,6 +222,11 @@ export function registerSettingsIpc(): void {
 
   ipcMain.handle(IpcChannel.SettingsSetGpuPref, (_e, enabled: boolean): AppSettings => {
     setPreferDedicatedGpu(enabled)
+    return getSettings()
+  })
+
+  ipcMain.handle(IpcChannel.SettingsSetMinimizeToTray, (_e, enabled: boolean): AppSettings => {
+    setMinimizeToTrayOnLaunch(enabled)
     return getSettings()
   })
 

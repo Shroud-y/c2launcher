@@ -107,6 +107,8 @@ const api = {
     resetDataDir: (): Promise<void> => ipcRenderer.invoke(IpcChannel.SettingsResetDataDir),
     setGpuPref: (enabled: boolean): Promise<AppSettings> =>
       ipcRenderer.invoke(IpcChannel.SettingsSetGpuPref, enabled),
+    setMinimizeToTray: (enabled: boolean): Promise<AppSettings> =>
+      ipcRenderer.invoke(IpcChannel.SettingsSetMinimizeToTray, enabled),
     onDataMigrateProgress: (cb: (p: DataMigrateProgress) => void): (() => void) =>
       subscribe(IpcChannel.SettingsDataMigrateProgress, cb)
   },
