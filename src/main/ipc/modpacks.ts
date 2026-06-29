@@ -45,7 +45,7 @@ import { ensureMojangRuntime, findJava } from '../minecraft/java'
 import { getMinecraftSession } from '../auth/microsoftAuth'
 import { loadRefreshToken, saveRefreshToken } from '../auth/tokenStore'
 import { getJavaOverride, getMinimizeToTrayOnLaunch } from '../settings/store'
-import { getMainWindow } from '../index'
+import { getMainWindow, revealWindow } from '../index'
 
 import type { ChildProcess } from 'child_process'
 
@@ -187,6 +187,20 @@ async function runLaunch(modpack: Modpack, _sender: WebContents): Promise<void> 
   runningProcesses.set(modpackId, child)
   updateModpack(modpackId, { lastPlayedAt: Date.now() })
 
+  // Delay hiding the launcher to the tray. A fast (e.g. vanilla) launch prints
+  // its first line almost instantly, so hiding on that line made the window
+  // vanish before the game window appeared — and a launch that crashes in the
+  // first moments would hide the launcher for no reason. Arm a timer when the
+  // game reports running and only hide if it is genuinely still alive; cancel
+  // it the instant the process errors or exits.
+  let hideTimer: ReturnType<typeof setTimeout> | null = null
+  function clearHideTimer(): void {
+    if (hideTimer !== null) {
+      clearTimeout(hideTimer)
+      hideTimer = null
+    }
+  }
+
   let sawRunning = false
   function onLine(stream: 'stdout' | 'stderr', chunk: Buffer): void {
     for (const line of chunk.toString().split(/\r?\n/)) {
@@ -196,7 +210,12 @@ async function runLaunch(modpack: Modpack, _sender: WebContents): Promise<void> 
         sendState({ modpackId, state: 'running' })
         // Hide (not close) the launcher to the tray so the app stays alive
         // and window-all-closed does not fire.
-        if (getMinimizeToTrayOnLaunch()) getMainWindow()?.hide()
+        if (getMinimizeToTrayOnLaunch()) {
+          hideTimer = setTimeout(() => {
+            hideTimer = null
+            if (runningProcesses.has(modpackId)) getMainWindow()?.hide()
+          }, 2000)
+        }
       }
       sendLog({ modpackId, stream, line })
     }
@@ -206,24 +225,24 @@ async function runLaunch(modpack: Modpack, _sender: WebContents): Promise<void> 
   child.stderr?.on('data', (c: Buffer) => onLine('stderr', c))
 
   child.on('error', (err) => {
+    clearHideTimer()
     busy.delete(modpackId)
     runningProcesses.delete(modpackId)
     sendState({ modpackId, state: 'error', message: err.message })
   })
 
   child.on('close', (code) => {
+    clearHideTimer()
     busy.delete(modpackId)
     runningProcesses.delete(modpackId)
     sendLog({ modpackId, stream: 'system', line: `Game exited with code ${code ?? 0}` })
     sendState({ modpackId, state: 'exited', exitCode: code ?? 0 })
     // If we hid the launcher to the tray on launch, bring it back when the
     // game exits. Only act on a still-hidden window so we don't steal focus
-    // if the user already reopened it from the tray.
+    // if the user already reopened it from the tray. revealWindow re-activates
+    // it properly so Play is clickable immediately (see its note on Windows).
     const win = getMainWindow()
-    if (win !== null && !win.isVisible()) {
-      win.show()
-      win.focus()
-    }
+    if (win !== null && !win.isVisible()) revealWindow(win)
   })
 }
 
