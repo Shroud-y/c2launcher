@@ -1,6 +1,6 @@
 import { app, Menu, Tray, nativeImage } from 'electron'
 import icon from '../../resources/icon.png?asset'
-import { createWindow, getMainWindow } from './index'
+import { createWindow, getMainWindow, revealWindow } from './index'
 
 // Module-level reference: a Tray that gets garbage-collected disappears from
 // the system tray, so we must hold onto it for the app's lifetime.
@@ -13,9 +13,7 @@ function showMainWindow(): void {
     createWindow()
     return
   }
-  if (win.isMinimized()) win.restore()
-  win.show()
-  win.focus()
+  revealWindow(win)
 }
 
 /**
@@ -26,7 +24,11 @@ function showMainWindow(): void {
 export function createTray(): void {
   if (tray !== null) return
 
-  const image = nativeImage.createFromPath(icon)
+  // resources/icon.png is 1024×1024 — far larger than a tray slot. Windows
+  // renders an oversized icon as blank (a clickable but empty spot), so
+  // downscale to the conventional 16×16 logical tray size; Electron handles
+  // the per-monitor DPI scaling from there.
+  const image = nativeImage.createFromPath(icon).resize({ width: 16, height: 16 })
   tray = new Tray(image)
   tray.setToolTip('C² Launcher')
 
