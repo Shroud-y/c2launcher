@@ -108,8 +108,7 @@ export interface CustomSwatches {
   border: string
 }
 
-/** Starting point for a fresh custom theme (the old Amethyst palette, so the
- *  fourth slot looks identical until the user edits it). */
+/** Starting point for a fresh custom theme  */
 export const DEFAULT_CUSTOM_SWATCHES: CustomSwatches = {
   bg: '#141019',
   panel: '#221a2e',
