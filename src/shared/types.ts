@@ -52,6 +52,8 @@ export interface AppSettings {
   javaPath: string | null
   /** Force the dedicated GPU for the game on hybrid-graphics machines. */
   preferDedicatedGpu: boolean
+  /** Hide the launcher window to the system tray when a game launches. */
+  minimizeToTrayOnLaunch: boolean
 }
 
 /** Streamed to the renderer while game data is copied to a new data folder. */

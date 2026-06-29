@@ -18,6 +18,8 @@ interface ConfigSchema {
   javaPath: string | null
   /** Force the dedicated GPU for the game on hybrid-graphics machines. */
   preferDedicatedGpu: boolean
+  /** Hide the launcher window to the system tray when a game launches. */
+  minimizeToTrayOnLaunch: boolean
 }
 
 let store: Store<ConfigSchema> | null = null
@@ -26,7 +28,12 @@ function getStore(): Store<ConfigSchema> {
   if (store === null) {
     store = new Store<ConfigSchema>({
       name: 'config',
-      defaults: { dataDirOverride: null, javaPath: null, preferDedicatedGpu: true }
+      defaults: {
+        dataDirOverride: null,
+        javaPath: null,
+        preferDedicatedGpu: true,
+        minimizeToTrayOnLaunch: true
+      }
     })
   }
   return store
@@ -62,11 +69,20 @@ export function setPreferDedicatedGpu(enabled: boolean): void {
   getStore().set('preferDedicatedGpu', enabled)
 }
 
+export function getMinimizeToTrayOnLaunch(): boolean {
+  return getStore().get('minimizeToTrayOnLaunch')
+}
+
+export function setMinimizeToTrayOnLaunch(enabled: boolean): void {
+  getStore().set('minimizeToTrayOnLaunch', enabled)
+}
+
 export function getSettings(): AppSettings {
   return {
     dataDir: getDataDir(),
     dataDirIsDefault: isDataDirDefault(),
     javaPath: getJavaOverride(),
-    preferDedicatedGpu: getPreferDedicatedGpu()
+    preferDedicatedGpu: getPreferDedicatedGpu(),
+    minimizeToTrayOnLaunch: getMinimizeToTrayOnLaunch()
   }
 }

@@ -44,7 +44,8 @@ import { launchGame } from '../minecraft/launch'
 import { ensureMojangRuntime, findJava } from '../minecraft/java'
 import { getMinecraftSession } from '../auth/microsoftAuth'
 import { loadRefreshToken, saveRefreshToken } from '../auth/tokenStore'
-import { getJavaOverride } from '../settings/store'
+import { getJavaOverride, getMinimizeToTrayOnLaunch } from '../settings/store'
+import { getMainWindow } from '../index'
 
 import type { ChildProcess } from 'child_process'
 
@@ -193,6 +194,9 @@ async function runLaunch(modpack: Modpack, _sender: WebContents): Promise<void> 
       if (!sawRunning) {
         sawRunning = true
         sendState({ modpackId, state: 'running' })
+        // Hide (not close) the launcher to the tray so the app stays alive
+        // and window-all-closed does not fire.
+        if (getMinimizeToTrayOnLaunch()) getMainWindow()?.hide()
       }
       sendLog({ modpackId, stream, line })
     }
@@ -212,6 +216,14 @@ async function runLaunch(modpack: Modpack, _sender: WebContents): Promise<void> 
     runningProcesses.delete(modpackId)
     sendLog({ modpackId, stream: 'system', line: `Game exited with code ${code ?? 0}` })
     sendState({ modpackId, state: 'exited', exitCode: code ?? 0 })
+    // If we hid the launcher to the tray on launch, bring it back when the
+    // game exits. Only act on a still-hidden window so we don't steal focus
+    // if the user already reopened it from the tray.
+    const win = getMainWindow()
+    if (win !== null && !win.isVisible()) {
+      win.show()
+      win.focus()
+    }
   })
 }
 
