@@ -208,10 +208,10 @@ export default function SettingsModal(): JSX.Element {
             <button
               type="button"
               role="switch"
-              aria-checked={settings?.minimizeToTrayOnLaunch ?? true}
+              aria-checked={settings?.minimizeToTrayOnLaunch ?? false}
               aria-label="Minimize to tray on launch"
               className={
-                settings?.minimizeToTrayOnLaunch !== false
+                settings?.minimizeToTrayOnLaunch === true
                   ? `${styles.switch} ${styles.switchOn}`
                   : styles.switch
               }

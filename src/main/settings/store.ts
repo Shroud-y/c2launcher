@@ -32,7 +32,7 @@ function getStore(): Store<ConfigSchema> {
         dataDirOverride: null,
         javaPath: null,
         preferDedicatedGpu: true,
-        minimizeToTrayOnLaunch: true
+        minimizeToTrayOnLaunch: false
       }
     })
   }
