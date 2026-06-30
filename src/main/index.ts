@@ -15,12 +15,6 @@ import { createTray } from './tray'
 // destroyed window and recreate it.
 let mainWindow: BrowserWindow | null = null
 
-// A lightweight splash shown during the cold start (slow first launch after a
-// reboot: cold disk, AV scan of the unsigned exe, JIT). The heavy main window
-// renders behind show:false; the splash gives immediate visible feedback and
-// is closed the moment the main window is ready.
-let splashWindow: BrowserWindow | null = null
-
 /** The main window, or null if it has been closed/destroyed. */
 export function getMainWindow(): BrowserWindow | null {
   return mainWindow
@@ -53,49 +47,6 @@ export function revealWindow(win: BrowserWindow): void {
 // location.
 app.setPath('userData', join(app.getPath('appData'), 'c2launcher'))
 
-// Inline splash markup — no renderer build, no extra file, no dependencies.
-// Matches the app background (#0f1117) so there is no flash before paint.
-const SPLASH_HTML = `<!doctype html><html><head><meta charset="utf-8"><style>
-  html,body{margin:0;height:100%;background:#0f1117;color:#e6e8ee;overflow:hidden;
-    font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;-webkit-user-select:none}
-  .wrap{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px}
-  .title{font-size:22px;font-weight:600;letter-spacing:.5px}
-  .sub{font-size:13px;color:#8b90a0}
-  .spinner{width:34px;height:34px;border-radius:50%;border:3px solid #2a2f3d;
-    border-top-color:#5b8cff;animation:spin .8s linear infinite}
-  @keyframes spin{to{transform:rotate(360deg)}}
-</style></head><body><div class="wrap">
-  <div class="spinner"></div>
-  <div class="title">C² Launcher</div>
-  <div class="sub">Запуск…</div>
-</div></body></html>`
-
-/** Create and show the splash window. Safe to call once at startup. */
-export function createSplash(): void {
-  const splash = new BrowserWindow({
-    width: 360,
-    height: 240,
-    frame: false,
-    resizable: false,
-    center: true,
-    show: false,
-    backgroundColor: '#0f1117',
-    icon,
-    skipTaskbar: true
-  })
-  splashWindow = splash
-  splash.on('closed', () => {
-    if (splashWindow === splash) splashWindow = null
-  })
-  splash.once('ready-to-show', () => splash.show())
-  void splash.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(SPLASH_HTML)}`)
-}
-
-function closeSplash(): void {
-  if (splashWindow !== null && !splashWindow.isDestroyed()) splashWindow.close()
-  splashWindow = null
-}
-
 export function createWindow(): void {
   const win = new BrowserWindow({
     width: 1280,
@@ -120,10 +71,9 @@ export function createWindow(): void {
   })
 
   win.on('ready-to-show', () => {
-    // Hand off from the splash to the real window in one frame: close the
-    // splash, then show the main window. The main window already exists by
-    // now, so closing the splash never trips window-all-closed.
-    closeSplash()
+    // Show only once the renderer has painted, so there is no white flash
+    // before the first frame (the window is created with show:false and a
+    // matching backgroundColor).
     win.show()
   })
 
@@ -150,9 +100,6 @@ app.whenReady().then(() => {
   registerSettingsIpc()
   registerDiscoverIpc()
   registerUpdateIpc()
-  // Splash first so something is on screen immediately, then build the heavy
-  // main window behind it (show:false). ready-to-show closes the splash.
-  createSplash()
   createWindow()
   createTray()
   initAutoUpdater()
