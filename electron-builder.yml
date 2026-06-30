@@ -13,10 +13,15 @@ directories:
   output: dist
   buildResources: build
 
-# Ship only the compiled output and the runtime manifest; sources, mockups
-# and dev config stay out of the package.
+# Ship the compiled output, the runtime manifest, and resources/. The latter
+# holds runtime assets (e.g. the tray icon) that electron-vite's `?asset`
+# imports reference at run time as join(__dirname, '../../resources/...') —
+# i.e. <asar>/resources/. Omitting it leaves that path empty in the package
+# (blank tray icon), even though it resolves fine against the source tree in
+# dev. Sources, mockups and dev config still stay out of the package.
 files:
   - out/**/*
+  - resources/**/*
   - package.json
 
 # electron-updater reads this to discover new releases. Point it at the
