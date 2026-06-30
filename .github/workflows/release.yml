@@ -1,7 +1,7 @@
 name: Release
 
-# Build installers and publish them to a GitHub Release whenever a version
-# tag is pushed (e.g. `git tag v0.1.1 && git push origin v0.1.1`).
+# Build installers and publish them to a single GitHub Release whenever a
+# version tag is pushed (e.g. `git tag v0.1.1 && git push origin v0.1.1`).
 # electron-updater clients read the uploaded latest*.yml to find the update.
 on:
   push:
@@ -12,7 +12,25 @@ permissions:
   contents: write
 
 jobs:
+  # Create the draft release once, up front. Without this the two matrix jobs
+  # below each race to create the release and GitHub happily makes a separate
+  # draft per OS for the same tag. Pre-creating it means electron-builder finds
+  # the existing draft by tag and uploads every platform's assets into that one
+  # release. `gh` is preinstalled on the runner.
+  create-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ensure a draft release exists for the tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
+            || gh release create "$TAG" --repo "$GITHUB_REPOSITORY" \
+                 --draft --title "$TAG" --notes ""
+
   release:
+    needs: create-release
     strategy:
       fail-fast: false
       matrix:
@@ -36,8 +54,8 @@ jobs:
 
       - name: Build and publish
         # electron-builder picks the host OS targets from electron-builder.yml
-        # (Windows -> nsis, Linux -> AppImage + deb) and uploads to the release
-        # named after the tag. GH_TOKEN authenticates the upload.
+        # (Windows -> nsis, Linux -> AppImage + deb) and uploads them into the
+        # pre-created draft named after the tag. GH_TOKEN authenticates upload.
         run: pnpm dist --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
