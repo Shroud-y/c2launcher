@@ -6,6 +6,7 @@ import InstallAction, { installTargets, PICKER_TITLES, pickerEmptyMessage } from
 import InstancePicker from './InstancePicker'
 import Dropdown from '../common/Dropdown'
 import { useCloseAnimation } from '../../hooks/useCloseAnimation'
+import { useBackdropDismiss } from '../../hooks/useBackdropDismiss'
 import { formatDownloads } from './SearchResultCard'
 import { useDiscoverStore } from '../../store/discoverStore'
 import { useModalStore } from '../../store/modalStore'
@@ -63,6 +64,7 @@ interface ProjectModalProps {
 export default function ProjectModal({ result }: ProjectModalProps): JSX.Element {
   const closeDiscoverProject = useModalStore((s) => s.closeDiscoverProject)
   const { closing, requestClose } = useCloseAnimation(closeDiscoverProject)
+  const backdrop = useBackdropDismiss(requestClose)
   const installError = useDiscoverStore((s) => s.installErrors[result.id] ?? '')
   const category = useDiscoverStore((s) => s.category)
   const installing = useDiscoverStore((s) => s.installing[result.id] === true)
@@ -194,7 +196,7 @@ export default function ProjectModal({ result }: ProjectModalProps): JSX.Element
   return (
     <div
       className={`${styles.overlay} ${closing ? styles.closing : ''}`}
-      onClick={requestClose}
+      {...backdrop}
     >
       <div
         className={styles.modal}

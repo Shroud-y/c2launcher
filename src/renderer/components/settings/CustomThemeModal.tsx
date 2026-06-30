@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { CloseIcon } from '../common/Icons'
 import { useModalStore } from '../../store/modalStore'
 import { useCloseAnimation } from '../../hooks/useCloseAnimation'
+import { useBackdropDismiss } from '../../hooks/useBackdropDismiss'
 import {
   type CustomSwatches,
   CUSTOM_THEME_ID,
@@ -45,6 +46,7 @@ export default function CustomThemeModal(): JSX.Element {
   }
 
   const { closing, requestClose } = useCloseAnimation(finish)
+  const backdrop = useBackdropDismiss(requestClose)
 
   // Live-preview the in-progress colors on the whole app while editing.
   useEffect(() => {
@@ -74,7 +76,7 @@ export default function CustomThemeModal(): JSX.Element {
   const preview = buildCustomTheme(swatches).colors
 
   return (
-    <div className={`${styles.overlay} ${closing ? styles.closing : ''}`} onClick={requestClose}>
+    <div className={`${styles.overlay} ${closing ? styles.closing : ''}`} {...backdrop}>
       <div
         className={styles.modal}
         role="dialog"

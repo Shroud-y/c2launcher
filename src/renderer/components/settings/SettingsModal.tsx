@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { CloseIcon, GearIcon } from '../common/Icons'
 import { useModalStore } from '../../store/modalStore'
 import { useCloseAnimation } from '../../hooks/useCloseAnimation'
+import { useBackdropDismiss } from '../../hooks/useBackdropDismiss'
 import type { AppSettings, DataMigrateProgress } from '@shared/types'
 import {
   THEMES,
@@ -20,6 +21,7 @@ export default function SettingsModal(): JSX.Element {
   const closeSettings = useModalStore((s) => s.closeSettings)
   const openCustomTheme = useModalStore((s) => s.openCustomTheme)
   const { closing, requestClose } = useCloseAnimation(closeSettings)
+  const backdrop = useBackdropDismiss(requestClose)
 
   // Presets plus the user's editable Custom theme in the fourth slot. Rebuilt
   // from storage on each mount so edits made in the editor show up here.
@@ -91,7 +93,7 @@ export default function SettingsModal(): JSX.Element {
       : 0
 
   return (
-    <div className={`${styles.overlay} ${closing ? styles.closing : ''}`} onClick={requestClose}>
+    <div className={`${styles.overlay} ${closing ? styles.closing : ''}`} {...backdrop}>
       <div
         className={styles.modal}
         role="dialog"

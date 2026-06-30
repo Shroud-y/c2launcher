@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { CloseIcon, DownloadIcon, FolderIcon, PlusIcon, WindIcon } from '../common/Icons'
 import Dropdown from '../common/Dropdown'
 import { useCloseAnimation } from '../../hooks/useCloseAnimation'
+import { useBackdropDismiss } from '../../hooks/useBackdropDismiss'
 import { formatSubtitle } from '../../data/format'
 import { useDiscoverStore } from '../../store/discoverStore'
 import { useModalStore } from '../../store/modalStore'
@@ -42,6 +43,10 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
   const navigate = useNavigate()
   const closeModpack = useModalStore((s) => s.closeModpack)
   const { closing, requestClose } = useCloseAnimation(closeModpack)
+  const backdrop = useBackdropDismiss(requestClose)
+  const confirmBackdrop = useBackdropDismiss(() => {
+    if (!deleting) setConfirmingDelete(false)
+  })
   const setInstallTarget = useDiscoverStore((s) => s.setInstallTarget)
   const setDiscoverCategory = useDiscoverStore((s) => s.setCategory)
   const {
@@ -385,7 +390,7 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
   }
 
   return (
-    <div className={`${styles.overlay} ${closing ? styles.closing : ''}`} onClick={requestClose}>
+    <div className={`${styles.overlay} ${closing ? styles.closing : ''}`} {...backdrop}>
       <div
         className={styles.modal}
         role="dialog"
@@ -743,10 +748,7 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
       {localPack !== null && confirmingDelete && (
         <div
           className={styles.confirmOverlay}
-          onClick={(e) => {
-            e.stopPropagation()
-            if (!deleting) setConfirmingDelete(false)
-          }}
+          {...confirmBackdrop}
         >
           <div
             className={styles.confirmBox}

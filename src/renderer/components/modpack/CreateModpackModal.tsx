@@ -3,6 +3,7 @@ import { CloseIcon } from '../common/Icons'
 import LoaderIcon from '../common/LoaderIcons'
 import Dropdown from '../common/Dropdown'
 import { useCloseAnimation } from '../../hooks/useCloseAnimation'
+import { useBackdropDismiss } from '../../hooks/useBackdropDismiss'
 import { useModalStore } from '../../store/modalStore'
 import { useModpackStore } from '../../store/modpackStore'
 import type { ModLoader } from '@shared/types'
@@ -19,6 +20,7 @@ const LOADERS: { id: ModLoader; label: string }[] = [
 export default function CreateModpackModal(): JSX.Element {
   const closeCreate = useModalStore((s) => s.closeCreate)
   const { closing, requestClose } = useCloseAnimation(closeCreate)
+  const backdrop = useBackdropDismiss(requestClose)
   const openModpack = useModalStore((s) => s.openModpack)
   const create = useModpackStore((s) => s.create)
   const importModpack = useModpackStore((s) => s.importModpack)
@@ -114,7 +116,7 @@ export default function CreateModpackModal(): JSX.Element {
   }
 
   return (
-    <div className={`${styles.overlay} ${closing ? styles.closing : ''}`} onClick={requestClose}>
+    <div className={`${styles.overlay} ${closing ? styles.closing : ''}`} {...backdrop}>
       <div
         className={styles.modal}
         role="dialog"
