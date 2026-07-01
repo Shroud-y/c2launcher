@@ -1,7 +1,13 @@
 import { ipcMain } from 'electron'
 import { IpcChannel } from '@shared/ipc-channels'
-import type { ProjectDetail, ProjectVersionInfo, SearchQuery, SearchResponse } from '@shared/types'
-import { modrinthProvider } from '../discover/modrinth'
+import type {
+  ModpackContentEntry,
+  ProjectDetail,
+  ProjectVersionInfo,
+  SearchQuery,
+  SearchResponse
+} from '@shared/types'
+import { getModpackContents, modrinthProvider } from '../discover/modrinth'
 
 const MAX_PAGE_SIZE = 100
 
@@ -37,5 +43,11 @@ export function registerDiscoverIpc(): void {
         datePublished: v.datePublished
       }))
     }
+  )
+
+  ipcMain.handle(
+    IpcChannel.DiscoverModpackContents,
+    (_e, projectId: string, versionId?: string): Promise<ModpackContentEntry[]> =>
+      getModpackContents(projectId, versionId)
   )
 }

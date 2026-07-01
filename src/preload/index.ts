@@ -15,6 +15,7 @@ import type {
   MinecraftProfile,
   ModLoader,
   Modpack,
+  ModpackContentEntry,
   ModpackSettings,
   ProjectDetail,
   ProjectVersionInfo,
@@ -96,7 +97,9 @@ const api = {
     project: (projectId: string): Promise<ProjectDetail> =>
       ipcRenderer.invoke(IpcChannel.DiscoverProject, projectId),
     projectVersions: (projectId: string): Promise<ProjectVersionInfo[]> =>
-      ipcRenderer.invoke(IpcChannel.DiscoverProjectVersions, projectId)
+      ipcRenderer.invoke(IpcChannel.DiscoverProjectVersions, projectId),
+    modpackContents: (projectId: string, versionId?: string): Promise<ModpackContentEntry[]> =>
+      ipcRenderer.invoke(IpcChannel.DiscoverModpackContents, projectId, versionId)
   },
   settings: {
     get: (): Promise<AppSettings> => ipcRenderer.invoke(IpcChannel.SettingsGet),

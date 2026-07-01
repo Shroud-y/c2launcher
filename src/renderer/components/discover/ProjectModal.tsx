@@ -11,10 +11,16 @@ import { formatDownloads } from './SearchResultCard'
 import { useDiscoverStore } from '../../store/discoverStore'
 import { useModalStore } from '../../store/modalStore'
 import { useModpackStore } from '../../store/modpackStore'
-import type { ProjectDetail, ProjectVersionInfo, SearchResult } from '@shared/types'
+import type {
+  ModpackContentEntry,
+  ProjectDetail,
+  ProjectVersionInfo,
+  SearchResult
+} from '@shared/types'
 import styles from './ProjectModal.module.css'
 
-type ModalTab = 'description' | 'gallery' | 'versions'
+// 'contents' (labelled "Mods") lists a modpack's bundled files.
+type ModalTab = 'description' | 'gallery' | 'versions' | 'contents'
 
 // External links only — the main process opens them in the system browser.
 DOMPurify.addHook('afterSanitizeAttributes', (node) => {
@@ -84,6 +90,8 @@ export default function ProjectModal({ result }: ProjectModalProps): JSX.Element
   const [tab, setTab] = useState<ModalTab>('description')
   const [detail, setDetail] = useState<ProjectDetail | null>(null)
   const [versions, setVersions] = useState<ProjectVersionInfo[] | null>(null)
+  const [contents, setContents] = useState<ModpackContentEntry[] | null>(null)
+  const [contentsError, setContentsError] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const [loaderFilter, setLoaderFilter] = useState('')
@@ -114,6 +122,15 @@ export default function ProjectModal({ result }: ProjectModalProps): JSX.Element
       )
       .catch(() => setError('Could not load versions'))
   }, [tab, versions, result.id])
+
+  // Modpacks only: load the bundled content list the first time the tab opens.
+  useEffect(() => {
+    if (tab !== 'contents' || contents !== null) return
+    window.api.discover
+      .modpackContents(result.id)
+      .then(setContents)
+      .catch(() => setContentsError('Could not load the mod list'))
+  }, [tab, contents, result.id])
 
   const bodyHtml = useMemo(
     () => (detail === null ? '' : renderBody(detail.body)),
@@ -184,11 +201,15 @@ export default function ProjectModal({ result }: ProjectModalProps): JSX.Element
   }
 
   const gallery = detail?.gallery ?? []
-  // Gallery tab only appears once the project loaded with images.
-  const tabs = useMemo<ModalTab[]>(
-    () => (gallery.length > 0 ? ['description', 'gallery', 'versions'] : ['description', 'versions']),
-    [gallery.length]
-  )
+  // Gallery tab only appears once the project loaded with images; the Mods
+  // (contents) tab only makes sense for modpacks.
+  const tabs = useMemo<ModalTab[]>(() => {
+    const list: ModalTab[] = ['description']
+    if (gallery.length > 0) list.push('gallery')
+    if (category === 'modpacks') list.push('contents')
+    list.push('versions')
+    return list
+  }, [gallery.length, category])
 
   const downloads = detail?.downloads ?? result.downloads
   const followers = detail?.followers
@@ -258,7 +279,7 @@ export default function ProjectModal({ result }: ProjectModalProps): JSX.Element
               className={tab === t ? styles.tabActive : styles.tab}
               onClick={() => setTab(t)}
             >
-              {capitalize(t)}
+              {t === 'contents' ? 'Mods' : capitalize(t)}
             </button>
           ))}
         </nav>
@@ -389,6 +410,33 @@ export default function ProjectModal({ result }: ProjectModalProps): JSX.Element
                   </ul>
                 )}
               </>
+            )}
+          </div>
+        )}
+
+        {tab === 'contents' && (
+          <div className={styles.body}>
+            {contentsError !== null ? (
+              <span className={styles.muted}>{contentsError}</span>
+            ) : contents === null ? (
+              <span className={styles.muted}>Loading…</span>
+            ) : contents.length === 0 ? (
+              <span className={styles.muted}>No mod list available for this modpack.</span>
+            ) : (
+              <ul className={styles.contentList}>
+                {contents.map((entry) => (
+                  <li key={entry.fileName} className={styles.contentRow}>
+                    {entry.iconUrl !== null ? (
+                      <img className={styles.contentIcon} src={entry.iconUrl} alt="" loading="lazy" />
+                    ) : (
+                      <span className={styles.contentIconFallback}>
+                        <WindIcon size={18} />
+                      </span>
+                    )}
+                    <span className={styles.contentName}>{entry.name}</span>
+                  </li>
+                ))}
+              </ul>
             )}
           </div>
         )}

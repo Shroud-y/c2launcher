@@ -162,6 +162,18 @@ export interface ContentUpdate {
   versionNumber: string
 }
 
+/** One entry in a Discover modpack's bundled content list (from its .mrpack). */
+export interface ModpackContentEntry {
+  /** Modrinth project id when the file is a CDN download; null for external URLs. */
+  projectId: string | null
+  /** Project title when resolved, else the archive file name. */
+  name: string
+  /** Modrinth project icon; null when unresolved or offline. */
+  iconUrl: string | null
+  /** Archive-relative file path (e.g. mods/sodium-x.y.z.jar). */
+  fileName: string
+}
+
 export interface MinecraftProfile {
   uuid: string
   username: string

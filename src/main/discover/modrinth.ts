@@ -1,7 +1,9 @@
+import AdmZip from 'adm-zip'
 import { app } from 'electron'
 import type {
   ContentCategory,
   ModLoader,
+  ModpackContentEntry,
   ProjectDetail,
   SearchQuery,
   SearchResponse,
@@ -294,6 +296,83 @@ export async function getProjectsByIds(ids: string[]): Promise<Map<string, Proje
     result.set(project.id, summary)
   }
   return result
+}
+
+const modpackContentsCache = makeCache<ModpackContentEntry[]>()
+
+interface MrpackIndexFileLite {
+  path: string
+  downloads?: string[]
+}
+
+interface MrpackIndexLite {
+  files?: MrpackIndexFileLite[]
+}
+
+// Modrinth CDN downloads look like
+// https://cdn.modrinth.com/data/{projectId}/versions/{versionId}/{file}
+const CDN_PROJECT_RE = /cdn\.modrinth\.com\/data\/([^/]+)\/versions\//
+
+/**
+ * Lists the content bundled inside a Modrinth modpack. Modrinth has no
+ * "modpack files" endpoint, so the .mrpack itself is fetched and its
+ * modrinth.index.json read. Each listed file's project id is recovered from
+ * its CDN download URL, then resolved to a title/icon in one batch call;
+ * files hosted outside Modrinth keep their bare archive name and stay
+ * unresolved. Cached like the other read calls — .mrpack indexes are small.
+ */
+export async function getModpackContents(
+  projectId: string,
+  versionId?: string
+): Promise<ModpackContentEntry[]> {
+  const cacheKey = `${projectId}:${versionId ?? 'latest'}`
+  const cached = modpackContentsCache.get(cacheKey)
+  if (cached !== null) return cached
+
+  const versions =
+    versionId !== undefined
+      ? [await getModrinthVersion(versionId)]
+      : await modrinthProvider.getProjectVersions(projectId)
+  const packFile =
+    versions.flatMap((v) => v.files).find((f) => f.filename.endsWith('.mrpack') && f.primary) ??
+    versions.flatMap((v) => v.files).find((f) => f.filename.endsWith('.mrpack'))
+  if (packFile === undefined) return []
+
+  const res = await fetch(packFile.url, { headers: { 'User-Agent': userAgent() } })
+  if (!res.ok) throw new Error(`Modpack download failed (${res.status})`)
+  const zip = new AdmZip(Buffer.from(await res.arrayBuffer()))
+  const indexEntry = zip.getEntry('modrinth.index.json')
+  if (indexEntry === null) return []
+  const index = JSON.parse(indexEntry.getData().toString('utf-8')) as MrpackIndexLite
+
+  const entries: ModpackContentEntry[] = []
+  const idsToResolve = new Set<string>()
+  for (const file of index.files ?? []) {
+    const url = file.downloads?.[0]
+    const fileName = file.path.split(/[/\\]/).pop() ?? file.path
+    const projectMatch = url !== undefined ? CDN_PROJECT_RE.exec(url) : null
+    const pid = projectMatch?.[1] ?? null
+    if (pid !== null) idsToResolve.add(pid)
+    entries.push({ projectId: pid, name: fileName, iconUrl: null, fileName: file.path })
+  }
+
+  if (idsToResolve.size > 0) {
+    const projects = await getProjectsByIds([...idsToResolve]).catch(
+      () => new Map<string, ProjectSummary>()
+    )
+    for (const entry of entries) {
+      if (entry.projectId === null) continue
+      const summary = projects.get(entry.projectId)
+      if (summary !== undefined) {
+        entry.name = summary.title
+        entry.iconUrl = summary.iconUrl
+      }
+    }
+  }
+
+  entries.sort((a, b) => a.name.localeCompare(b.name))
+  modpackContentsCache.set(cacheKey, entries)
+  return entries
 }
 
 export const modrinthProvider: ContentProvider = {

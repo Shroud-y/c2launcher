@@ -40,6 +40,7 @@ export enum IpcChannel {
   DiscoverSearch = 'discover:search',
   DiscoverProject = 'discover:project',
   DiscoverProjectVersions = 'discover:project-versions',
+  DiscoverModpackContents = 'discover:modpack-contents',
   WindowMinimize = 'window:minimize',
   WindowMaximize = 'window:maximize',
   WindowClose = 'window:close',
