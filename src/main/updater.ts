@@ -35,14 +35,16 @@ export function initAutoUpdater(): void {
   })
 
   autoUpdater.on('download-progress', (progress) => {
-    broadcast(IpcChannel.UpdateProgress, { percent: Math.round(progress.percent) })
+    broadcast(IpcChannel.UpdateProgress, {
+      percent: Math.round(progress.percent),
+      bytesPerSecond: progress.bytesPerSecond,
+      transferred: progress.transferred,
+      total: progress.total
+    })
   })
 
   autoUpdater.on('update-downloaded', () => {
-    // Install silently and relaunch. isSilent=true passes /S to the NSIS
-    // installer so the assisted-installer wizard window never appears during
-    // an update; isForceRunAfter=true reopens the app once it finishes.
-    autoUpdater.quitAndInstall(true, true)
+    finishInstall()
   })
 
   autoUpdater.on('error', (err) => {
@@ -63,4 +65,47 @@ export function downloadUpdate(): void {
     broadcast(IpcChannel.UpdateError, { message })
     console.error('Update download failed:', message)
   })
+}
+
+/**
+ * Move from a finished download to the actual install. Tell the renderer we're
+ * installing first, then give its overlay a moment to paint the "restarting
+ * automatically" state before the window disappears — otherwise the app just
+ * vanishes and the update reads as a freeze.
+ *
+ * quitAndInstall(true, true): isSilent=true passes /S to the NSIS installer so
+ * the assisted-installer wizard never appears; isForceRunAfter=true reopens the
+ * app once it finishes.
+ */
+function finishInstall(): void {
+  broadcast(IpcChannel.UpdateInstalling)
+  setTimeout(() => autoUpdater.quitAndInstall(true, true), 1500)
+}
+
+/**
+ * Dev-only preview: emit a fake download→install sequence so the overlay,
+ * progress and state changes can be seen without a real update feed. Guarded to
+ * unpackaged runs; never touches electron-updater.
+ */
+export function simulateUpdate(): void {
+  if (app.isPackaged) return
+
+  const total = 120 * 1024 * 1024 // 120 MB
+  let transferred = 0
+  const step = total / 40
+
+  const timer = setInterval(() => {
+    transferred = Math.min(total, transferred + step)
+    broadcast(IpcChannel.UpdateProgress, {
+      percent: Math.round((transferred / total) * 100),
+      bytesPerSecond: step * 5,
+      transferred,
+      total
+    })
+    if (transferred >= total) {
+      clearInterval(timer)
+      // Mirror the real flow's installing state, but never actually quit.
+      setTimeout(() => broadcast(IpcChannel.UpdateInstalling), 400)
+    }
+  }, 150)
 }

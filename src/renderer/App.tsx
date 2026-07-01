@@ -8,6 +8,7 @@ import CreateModpackModal from './components/modpack/CreateModpackModal'
 import SettingsModal from './components/settings/SettingsModal'
 import CustomThemeModal from './components/settings/CustomThemeModal'
 import ProjectModal from './components/discover/ProjectModal'
+import UpdateOverlay from './components/update/UpdateOverlay'
 import Home from './pages/Home'
 import Discover from './pages/Discover'
 import { useModalStore } from './store/modalStore'
@@ -31,13 +32,16 @@ export default function App(): JSX.Element {
     void initAuth()
     void loadModpacks()
 
-    const setAvailable = useUpdateStore.getState().setAvailable
-    const setProgress = useUpdateStore.getState().setProgress
-    const offAvailable = window.api.updater.onAvailable((info) => setAvailable(info.version))
-    const offProgress = window.api.updater.onProgress((info) => setProgress(info.percent))
+    const update = useUpdateStore.getState()
+    const offAvailable = window.api.updater.onAvailable((info) => update.setAvailable(info.version))
+    const offProgress = window.api.updater.onProgress((info) => update.setProgress(info))
+    const offInstalling = window.api.updater.onInstalling(() => update.setInstalling())
+    const offError = window.api.updater.onError((info) => update.setError(info.message))
     return () => {
       offAvailable()
       offProgress()
+      offInstalling()
+      offError()
     }
   }, [initAuth, loadModpacks, startEventSubscriptions])
 
@@ -62,6 +66,7 @@ export default function App(): JSX.Element {
         {discoverResult !== null && (
           <ProjectModal key={discoverResult.id} result={discoverResult} />
         )}
+        <UpdateOverlay />
       </div>
     </HashRouter>
   )

@@ -96,6 +96,18 @@ export interface InstallProgress {
   message: string
 }
 
+/** Launcher self-update download progress, forwarded from electron-updater. */
+export interface UpdateDownloadProgress {
+  /** 0–100. */
+  percent: number
+  /** Current download speed in bytes per second. */
+  bytesPerSecond: number
+  /** Bytes downloaded so far. */
+  transferred: number
+  /** Total bytes to download. */
+  total: number
+}
+
 export type GameStateKind = 'launching' | 'running' | 'exited' | 'error'
 
 export interface GameState {

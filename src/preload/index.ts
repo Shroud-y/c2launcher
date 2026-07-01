@@ -19,7 +19,8 @@ import type {
   ProjectDetail,
   ProjectVersionInfo,
   SearchQuery,
-  SearchResponse
+  SearchResponse,
+  UpdateDownloadProgress
 } from '@shared/types'
 
 function subscribe<T>(channel: IpcChannel, callback: (payload: T) => void): () => void {
@@ -114,10 +115,15 @@ const api = {
   },
   updater: {
     install: (): Promise<void> => ipcRenderer.invoke(IpcChannel.UpdateInstall),
+    simulate: (): Promise<void> => ipcRenderer.invoke(IpcChannel.UpdateSimulate),
     onAvailable: (cb: (info: { version: string }) => void): (() => void) =>
       subscribe(IpcChannel.UpdateAvailable, cb),
-    onProgress: (cb: (info: { percent: number }) => void): (() => void) =>
-      subscribe(IpcChannel.UpdateProgress, cb)
+    onProgress: (cb: (info: UpdateDownloadProgress) => void): (() => void) =>
+      subscribe(IpcChannel.UpdateProgress, cb),
+    onInstalling: (cb: () => void): (() => void) =>
+      subscribe(IpcChannel.UpdateInstalling, cb),
+    onError: (cb: (info: { message: string }) => void): (() => void) =>
+      subscribe(IpcChannel.UpdateError, cb)
   }
 }
 

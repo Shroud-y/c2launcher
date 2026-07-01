@@ -44,6 +44,8 @@ export enum IpcChannel {
   WindowMaximize = 'window:maximize',
   WindowClose = 'window:close',
   UpdateInstall = 'update:install',
+  /** Dev-only: fire a fake download→install sequence to preview the overlay. */
+  UpdateSimulate = 'update:simulate',
 
   // Main → renderer events
   SettingsDataMigrateProgress = 'settings:data-migrate-progress',
@@ -52,5 +54,7 @@ export enum IpcChannel {
   ModpackGameState = 'modpack:game-state',
   UpdateAvailable = 'update:available',
   UpdateProgress = 'update:progress',
+  /** Download finished; installing and about to quit/relaunch. */
+  UpdateInstalling = 'update:installing',
   UpdateError = 'update:error'
 }

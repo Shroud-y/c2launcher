@@ -35,7 +35,7 @@ export default function Sidebar(): JSX.Element {
   const setInstallTarget = useDiscoverStore((s) => s.setInstallTarget)
   const updateAvailable = useUpdateStore((s) => s.available)
   const updateVersion = useUpdateStore((s) => s.version)
-  const downloading = useUpdateStore((s) => s.downloading)
+  const updating = useUpdateStore((s) => s.active)
   const percent = useUpdateStore((s) => s.percent)
   const installUpdate = useUpdateStore((s) => s.install)
 
@@ -98,16 +98,16 @@ export default function Sidebar(): JSX.Element {
           type="button"
           className={styles.updateButton}
           title={
-            downloading
-              ? `Downloading update… ${percent}%`
+            updating
+              ? `Updating… ${percent}%`
               : `Update available${updateVersion !== null ? ` (v${updateVersion})` : ''} — click to install`
           }
           aria-label="Install update"
           onClick={installUpdate}
-          disabled={downloading}
+          disabled={updating}
         >
           <DownloadIcon size={28} />
-          {downloading && <span className={styles.updateProgress}>{percent}%</span>}
+          {updating && <span className={styles.updateProgress}>{percent}%</span>}
         </button>
       )}
 
