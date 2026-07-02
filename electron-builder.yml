@@ -47,6 +47,9 @@ nsis:
   perMachine: false
   allowToChangeInstallationDirectory: true
   deleteAppDataOnUninstall: false
+  # customRemoveFiles: on update, delete only the app's own files instead of
+  # wiping the whole install dir — protects user data placed inside it.
+  include: build/installer.nsh
 
 linux:
   icon: build/icon.png

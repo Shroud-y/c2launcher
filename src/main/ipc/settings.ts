@@ -21,6 +21,7 @@ import {
   hasEntries,
   isInside
 } from '../settings/dataMigrate'
+import { getInstallDir } from '../settings/installDirGuard'
 import { hasRunningGames } from './modpacks'
 
 const execFileAsync = promisify(execFile)
@@ -97,6 +98,18 @@ export function registerSettingsIpc(): void {
       return {
         status: 'error',
         message: 'Close the running game before changing the data folder.'
+      }
+    }
+
+    // The NSIS updater wipes the whole install dir on upgrade, so game data
+    // placed inside it would be destroyed by the next update.
+    const installDir = getInstallDir()
+    if (installDir !== null && isInside(target, installDir)) {
+      return {
+        status: 'error',
+        message:
+          'That folder is inside the launcher installation folder — launcher updates ' +
+          'erase it, destroying your game data. Choose a folder outside the installation folder.'
       }
     }
 

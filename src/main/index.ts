@@ -9,6 +9,8 @@ import { registerDiscoverIpc } from './ipc/discover'
 import { registerUpdateIpc } from './ipc/update'
 import { initAutoUpdater } from './updater'
 import { createTray } from './tray'
+import { migrateLegacyUserData } from './settings/legacyUserData'
+import { rescueDataDirFromInstallDir } from './settings/installDirRescue'
 
 // Module-level handle to the main window so the tray (and other main-process
 // code) can show/hide it. Cleared on 'closed' so callers can detect a
@@ -89,10 +91,17 @@ export function createWindow(): void {
   }
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   // Windows groups taskbar entries by AppUserModelID; without it the window
   // inherits the default Electron icon instead of ours.
   if (process.platform === 'win32') app.setAppUserModelId('com.c2launcher.app')
+
+  // Both must run before anything reads the config/registry stores or opens
+  // a window: the first moves data orphaned by the v0.1.4 userData rename,
+  // the second offers to pull game data out of the install folder before the
+  // updater could wipe it.
+  await migrateLegacyUserData()
+  await rescueDataDirFromInstallDir()
 
   registerWindowIpc()
   registerAuthIpc()

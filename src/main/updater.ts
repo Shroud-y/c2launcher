@@ -1,6 +1,10 @@
 import { app, BrowserWindow } from 'electron'
 import pkg from 'electron-updater'
 import { IpcChannel } from '@shared/ipc-channels'
+import {
+  DATA_DIR_IN_INSTALL_DIR_MESSAGE,
+  isDataDirInInstallDir
+} from './settings/installDirGuard'
 
 /**
  * Launcher self-update via electron-updater. Reads the `publish` block in
@@ -58,8 +62,25 @@ export function initAutoUpdater(): void {
   })
 }
 
+/**
+ * True when installing an update would destroy the user's game data: the
+ * NSIS updater wipes the whole install dir, so a data dir inside it dies
+ * with the old version. Checked both before downloading (early feedback)
+ * and again before the actual install (the state can change in between).
+ */
+function updateWouldDestroyData(): boolean {
+  if (!isDataDirInInstallDir()) return false
+  broadcast(IpcChannel.UpdateError, {
+    message:
+      `Update blocked: ${DATA_DIR_IN_INSTALL_DIR_MESSAGE} ` +
+      'Move the data folder in Settings, then update.'
+  })
+  return true
+}
+
 /** Triggered by the renderer's Update button: download, then install on finish. */
 export function downloadUpdate(): void {
+  if (updateWouldDestroyData()) return
   void autoUpdater.downloadUpdate().catch((err: unknown) => {
     const message = err instanceof Error ? err.message : 'unknown error'
     broadcast(IpcChannel.UpdateError, { message })
@@ -78,6 +99,7 @@ export function downloadUpdate(): void {
  * app once it finishes.
  */
 function finishInstall(): void {
+  if (updateWouldDestroyData()) return
   broadcast(IpcChannel.UpdateInstalling)
   setTimeout(() => autoUpdater.quitAndInstall(true, true), 1500)
 }
