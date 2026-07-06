@@ -98,11 +98,23 @@
 /* Sits in the gap between the account block (layout bottom ~84px) and the
    FilterSidebar separator (~112px). Absolute so it shifts nothing else.
    Server pinned left, Client pinned right. */
+/* Thin rule between the account block and the environment toggle. Absolute so
+   it shifts nothing else. */
+.envDivider {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  top: 70px;
+  height: 1px;
+  background: var(--text-primary);
+  pointer-events: none;
+}
+
 .envFilter {
   position: absolute;
   left: 14px;
   right: 14px;
-  top: 78px;
+  top: 80px;
   display: flex;
   justify-content: space-between;
   pointer-events: none;
