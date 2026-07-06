@@ -78,7 +78,7 @@ export const THEMES: Theme[] = [
     accent: '#2f9c95',
     text: '#f2e6dc',
     muted: '#c7c7c7',
-    hover: '#6e6e6e',
+    hover: '#535353',
     border: '#595959',
     onAccent: '#16110d',
     glow: 'rgba(125, 125, 125, 0.5)'

@@ -126,7 +126,7 @@
   align-items: center;
   gap: 6px;
   padding: 3px 4px;
-  border-radius: 8px;
+  border-radius: 6px;
   font-size: 12px;
   font-weight: 600;
   color: var(--text);
@@ -135,7 +135,6 @@
 }
 
 .envButton:hover {
-  color: var(--text-primary);
   background: var(--bg-hover);
   transform: translateY(-1px);
 }
@@ -150,15 +149,9 @@
 
 .envButtonActive {
   composes: envButton;
-  color: var(--text-on-accent);
-  background: var(--accent);
+  color: var(--accent);
+  background: var(--bg-hover);
 }
-
-.envButtonActive:hover {
-  color: var(--text-on-accent);
-  background: var(--accent-soft);
-}
-
 /* Nudge the account block up via transform so surrounding layout (dividers,
    FilterSidebar, GitHub button) is unaffected. */
 .accountSlot {
