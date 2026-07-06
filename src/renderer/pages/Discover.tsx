@@ -28,6 +28,7 @@ export default function Discover(): JSX.Element {
   const gameVersion = useDiscoverStore((s) => s.gameVersion)
   const loader = useDiscoverStore((s) => s.loader)
   const tags = useDiscoverStore((s) => s.tags)
+  const environment = useDiscoverStore((s) => s.environment)
   const results = useDiscoverStore((s) => s.results)
   const loading = useDiscoverStore((s) => s.loading)
   const error = useDiscoverStore((s) => s.error)
@@ -74,6 +75,7 @@ export default function Discover(): JSX.Element {
     gameVersion,
     loader,
     tags,
+    environment,
     installTarget,
     onlyAvailable,
     search

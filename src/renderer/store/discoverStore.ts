@@ -24,6 +24,8 @@ interface DiscoverState {
   gameVersion: string | null
   loader: ModLoader | null
   tags: string[]
+  /** Environment filter; null = show all (no side restriction). */
+  environment: 'server' | 'client' | null
 
   results: SearchResult[]
   totalHits: number
@@ -61,6 +63,7 @@ interface DiscoverState {
   setPage: (page: number) => void
   setGameVersion: (version: string | null) => void
   setLoader: (loader: ModLoader | null) => void
+  setEnvironment: (environment: 'server' | 'client' | null) => void
   toggleTag: (tag: string) => void
   setInstallTarget: (modpackId: string | null) => void
   setOnlyAvailable: (onlyAvailable: boolean) => void
@@ -86,6 +89,7 @@ export const useDiscoverStore = create<DiscoverState>((set, get) => ({
   gameVersion: null,
   loader: null,
   tags: [],
+  environment: null,
 
   results: [],
   totalHits: 0,
@@ -111,6 +115,7 @@ export const useDiscoverStore = create<DiscoverState>((set, get) => ({
   setPage: (page): void => set({ page }),
   setGameVersion: (gameVersion): void => set({ gameVersion, page: 1 }),
   setLoader: (loader): void => set({ loader, page: 1 }),
+  setEnvironment: (environment): void => set({ environment, page: 1 }),
   toggleTag: (tag): void => {
     const tags = get().tags
     set({ tags: tags.includes(tag) ? tags.filter((t) => t !== tag) : [...tags, tag], page: 1 })
@@ -118,7 +123,8 @@ export const useDiscoverStore = create<DiscoverState>((set, get) => ({
 
   search: async (): Promise<void> => {
     const generation = ++searchGeneration
-    const { category, text, sort, page, pageSize, tags, installTarget, onlyAvailable } = get()
+    const { category, text, sort, page, pageSize, tags, environment, installTarget, onlyAvailable } =
+      get()
 
     let gameVersion = get().gameVersion ?? undefined
     let loader = get().loader ?? undefined
@@ -147,7 +153,8 @@ export const useDiscoverStore = create<DiscoverState>((set, get) => ({
         pageSize,
         gameVersion,
         loader,
-        tags: tags.length > 0 ? tags : undefined
+        tags: tags.length > 0 ? tags : undefined,
+        environment: environment ?? undefined
       })
       if (generation !== searchGeneration) return
       set({ results: response.hits, totalHits: response.totalHits, loading: false })

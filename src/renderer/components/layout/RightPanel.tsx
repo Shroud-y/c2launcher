@@ -1,8 +1,9 @@
 import { useLocation } from 'react-router-dom'
 import Avatar from '../common/Avatar'
 import FilterSidebar from '../discover/FilterSidebar'
-import { GitHubIcon } from '../common/Icons'
+import { CompassIcon, GitHubIcon, MonitorIcon } from '../common/Icons'
 import { useAuthStore } from '../../store/authStore'
+import { useDiscoverStore } from '../../store/discoverStore'
 import styles from './RightPanel.module.css'
 
 // Edit to your repository URL.
@@ -43,12 +44,43 @@ function AccountSection(): JSX.Element {
   )
 }
 
+// Server/Client environment toggle, pinned in the corner between the account
+// block and the FilterSidebar separator. No "All" option — deactivating the
+// active side (clicking it again) clears the filter. Absolutely positioned so
+// it never shifts the account, sidebar, or GitHub button.
+function EnvFilter(): JSX.Element {
+  const environment = useDiscoverStore((s) => s.environment)
+  const setEnvironment = useDiscoverStore((s) => s.setEnvironment)
+
+  return (
+    <div className={styles.envFilter}>
+      <button
+        type="button"
+        className={environment === 'server' ? styles.envButtonActive : styles.envButton}
+        onClick={() => setEnvironment(environment === 'server' ? null : 'server')}
+      >
+        <MonitorIcon size={14} className={styles.envIcon} />
+        Server
+      </button>
+      <button
+        type="button"
+        className={environment === 'client' ? styles.envButtonActive : styles.envButton}
+        onClick={() => setEnvironment(environment === 'client' ? null : 'client')}
+      >
+        <CompassIcon size={14} className={styles.envIcon} />
+        Client
+      </button>
+    </div>
+  )
+}
+
 export default function RightPanel(): JSX.Element {
   const { pathname } = useLocation()
 
   return (
     <aside className={styles.panel}>
       <AccountSection />
+      {pathname === '/discover' && <EnvFilter />}
       {pathname === '/discover' && <span className={styles.githubDivider} aria-hidden="true" />}
       <a
         className={styles.github}

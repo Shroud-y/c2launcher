@@ -35,6 +35,15 @@ export function CompassIcon({ size = 22, className }: IconProps): JSX.Element {
   )
 }
 
+export function MonitorIcon({ size = 22, className }: IconProps): JSX.Element {
+  return (
+    <svg {...svgProps(size, className)}>
+      <rect x="3" y="4" width="18" height="12" rx="1.5" />
+      <path d="M8 20h8M12 16v4" />
+    </svg>
+  )
+}
+
 export function WindIcon({ size = 24, className }: IconProps): JSX.Element {
   return (
     <svg {...svgProps(size, className)}>

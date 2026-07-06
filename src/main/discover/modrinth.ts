@@ -386,6 +386,10 @@ export const modrinthProvider: ContentProvider = {
     // Loaders share the categories facet with tags on Modrinth.
     if (query.loader !== undefined) facets.push([`categories:${query.loader}`])
     for (const tag of query.tags ?? []) facets.push([`categories:${tag}`])
+    // Environment filter: content that supports the given side (required or
+    // optional), excluding projects that mark it unsupported.
+    if (query.environment === 'server') facets.push(['server_side:required', 'server_side:optional'])
+    if (query.environment === 'client') facets.push(['client_side:required', 'client_side:optional'])
 
     const params = new URLSearchParams({
       query: query.text,

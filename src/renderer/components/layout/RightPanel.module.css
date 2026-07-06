@@ -95,6 +95,58 @@
   background: var(--accent);
 }
 
+/* Sits in the gap between the account block (layout bottom ~84px) and the
+   FilterSidebar separator (~112px). Absolute so it shifts nothing else.
+   Server pinned left, Client pinned right. */
+.envFilter {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  top: 78px;
+  display: flex;
+  justify-content: space-between;
+  pointer-events: none;
+}
+
+.envButton {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 4px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  background: transparent;
+  transition: background 0.15s, color 0.15s, transform 0.15s;
+}
+
+.envButton:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+  transform: translateY(-1px);
+}
+
+.envButton:active {
+  transform: translateY(0);
+}
+
+.envIcon {
+  flex-shrink: 0;
+}
+
+.envButtonActive {
+  composes: envButton;
+  color: var(--text-on-accent);
+  background: var(--accent);
+}
+
+.envButtonActive:hover {
+  color: var(--text-on-accent);
+  background: var(--accent-soft);
+}
+
 /* Nudge the account block up via transform so surrounding layout (dividers,
    FilterSidebar, GitHub button) is unaffected. */
 .accountSlot {

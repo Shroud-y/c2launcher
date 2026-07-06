@@ -200,6 +200,8 @@ export interface SearchQuery {
   gameVersion?: string
   loader?: ModLoader
   tags?: string[]
+  /** Environment filter: server-side or client-side supporting content. */
+  environment?: 'server' | 'client'
 }
 
 export interface SearchResult {
