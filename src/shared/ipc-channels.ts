@@ -14,6 +14,7 @@ export enum IpcChannel {
   ModpackInstallModrinth = 'modpack:install-mrpack',
   ModpackImportMrpack = 'modpack:import-mrpack',
   ModpackImportContent = 'modpack:import-content',
+  ModpackExport = 'modpack:export',
   ModpackMods = 'modpack:mods',
   ModpackContentUpdates = 'modpack:content-updates',
   ModpackToggleMod = 'modpack:toggle-mod',

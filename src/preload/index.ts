@@ -58,6 +58,8 @@ const api = {
       ipcRenderer.invoke(IpcChannel.ModpackInstallModrinth, projectId, versionId),
     importModpack: (): Promise<Modpack | null> =>
       ipcRenderer.invoke(IpcChannel.ModpackImportMrpack),
+    exportModpack: (id: string): Promise<boolean> =>
+      ipcRenderer.invoke(IpcChannel.ModpackExport, id),
     installContent: (params: InstallContentParams): Promise<InstalledContent> =>
       ipcRenderer.invoke(IpcChannel.ModpackInstallMod, params),
     importContent: (id: string, category: InstallableCategory): Promise<InstalledContent[]> =>

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { CloseIcon, DownloadIcon, FolderIcon, PlusIcon, WindIcon } from '../common/Icons'
+import { CloseIcon, DownloadIcon, FolderIcon, PlusIcon, UploadIcon, WindIcon } from '../common/Icons'
 import Dropdown from '../common/Dropdown'
 import { useCloseAnimation } from '../../hooks/useCloseAnimation'
 import { useBackdropDismiss } from '../../hooks/useBackdropDismiss'
@@ -94,6 +94,8 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
   /** Per-tab name filter for the installed list; reset when switching tabs. */
   const [search, setSearch] = useState('')
   const [importingFiles, setImportingFiles] = useState(false)
+  const [exporting, setExporting] = useState(false)
+  const [exportError, setExportError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!isContentTab(tab) || content[tab] !== undefined) return
@@ -232,6 +234,20 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
       setModsError(message.replace(/^Error invoking remote method '[^']+': (?:\w*Error: )?/, ''))
     } finally {
       setImportingFiles(false)
+    }
+  }
+
+  /** Save dialog picks the format: .mrpack (Modrinth) or .zip (instance copy). */
+  async function exportPack(): Promise<void> {
+    setExportError(null)
+    setExporting(true)
+    try {
+      await window.api.modpack.exportModpack(modpackId)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Could not export the modpack'
+      setExportError(message.replace(/^Error invoking remote method '[^']+': (?:\w*Error: )?/, ''))
+    } finally {
+      setExporting(false)
     }
   }
 
@@ -448,6 +464,18 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
               <button
                 type="button"
                 className={styles.folderButton}
+                title="Export modpack (.mrpack / .zip)"
+                aria-label="Export modpack"
+                disabled={exporting}
+                onClick={() => void exportPack()}
+              >
+                <UploadIcon />
+              </button>
+            )}
+            {localPack !== null && (
+              <button
+                type="button"
+                className={styles.folderButton}
                 title="Open instance folder"
                 aria-label="Open instance folder"
                 onClick={() => void window.api.modpack.openFolder(modpackId)}
@@ -476,6 +504,7 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
         </header>
 
         {launchError !== null && <div className={styles.error}>{launchError}</div>}
+        {exportError !== null && <div className={styles.error}>{exportError}</div>}
         {crashText !== null && <div className={styles.error}>{crashText}</div>}
 
         <nav className={styles.tabs}>

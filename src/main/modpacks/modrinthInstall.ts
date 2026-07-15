@@ -48,7 +48,7 @@ interface MrpackIndex {
   files?: MrpackFile[]
 }
 
-const LOADER_DEPENDENCIES: [string, ModLoader][] = [
+export const LOADER_DEPENDENCIES: [string, ModLoader][] = [
   ['fabric-loader', 'fabric'],
   ['quilt-loader', 'quilt'],
   ['forge', 'forge'],

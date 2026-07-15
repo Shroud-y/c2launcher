@@ -247,6 +247,35 @@ export async function getVersionsByHashes(hashes: string[]): Promise<Map<string,
   return result
 }
 
+/** Download info for the exact file behind a sha1 hash — used by modpack export. */
+export interface HashFileMatch {
+  url: string
+  sha512: string | null
+  size: number
+}
+
+/**
+ * Batch hash → file download-info lookup. Unlike getVersionsByHashes this
+ * keeps the matched file's url/hashes/size (needed to write a
+ * modrinth.index.json). Unknown hashes are absent from the result.
+ */
+export async function getVersionFilesByHashes(
+  hashes: string[]
+): Promise<Map<string, HashFileMatch>> {
+  if (hashes.length === 0) return new Map()
+  const raw = await fetchJson<Record<string, ModrinthVersion>>(`${BASE_URL}/version_files`, {
+    method: 'POST',
+    body: JSON.stringify({ hashes, algorithm: 'sha1' })
+  })
+  const result = new Map<string, HashFileMatch>()
+  for (const [hash, version] of Object.entries(raw)) {
+    const file = version.files.find((f) => f.hashes.sha1 === hash)
+    if (file === undefined) continue
+    result.set(hash, { url: file.url, sha512: file.hashes.sha512 ?? null, size: file.size })
+  }
+  return result
+}
+
 /**
  * Batch hash → latest compatible version lookup (Modrinth's update
  * endpoint). Hashes Modrinth doesn't recognize are absent from the

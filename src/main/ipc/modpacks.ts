@@ -1,5 +1,5 @@
 import { BrowserWindow, dialog, ipcMain, shell, type WebContents } from 'electron'
-import { mkdir, readFile, stat } from 'fs/promises'
+import { mkdir, readFile, rm, stat } from 'fs/promises'
 import { basename, extname } from 'path'
 import { IpcChannel } from '@shared/ipc-channels'
 import type {
@@ -28,6 +28,7 @@ import {
   updateModpack
 } from '../modpacks/store'
 import { installModpackFromFile, installModrinthPack } from '../modpacks/modrinthInstall'
+import { exportModpack } from '../modpacks/export'
 import {
   checkContentUpdates,
   importContentFiles,
@@ -428,6 +429,40 @@ export function registerModpackIpc(): void {
       }
     }
   )
+
+  ipcMain.handle(IpcChannel.ModpackExport, async (event, id: string): Promise<boolean> => {
+    const modpack = getModpack(id)
+    if (modpack === null) throw new Error('Modpack not found')
+    if (busy.has(id)) {
+      throw new Error('Stop the game and wait for installs to finish before exporting')
+    }
+
+    const win = BrowserWindow.fromWebContents(event.sender)
+    const options = {
+      title: 'Export modpack',
+      defaultPath: `${modpack.dirName ?? modpack.name}.mrpack`,
+      filters: [
+        { name: 'Modrinth modpack', extensions: ['mrpack'] },
+        { name: 'Instance zip', extensions: ['zip'] }
+      ]
+    }
+    const { canceled, filePath } =
+      win !== null ? await dialog.showSaveDialog(win, options) : await dialog.showSaveDialog(options)
+    if (canceled || filePath === undefined || filePath === '') return false
+
+    // Mark busy so rename/delete/launch can't move files out from under the zip.
+    busy.add(id)
+    try {
+      await exportModpack(modpack, filePath)
+      return true
+    } catch (err) {
+      // Don't leave a half-written archive at the user's chosen path.
+      await rm(filePath, { force: true }).catch(() => undefined)
+      throw err
+    } finally {
+      busy.delete(id)
+    }
+  })
 
   ipcMain.handle(
     IpcChannel.ModpackInstallMod,

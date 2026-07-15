@@ -92,7 +92,7 @@ function sha1OfFile(path: string): Promise<string> {
  */
 const fileHashCache = new Map<string, { signature: string; hash: string }>()
 
-async function sha1OfFileCached(path: string): Promise<string> {
+export async function sha1OfFileCached(path: string): Promise<string> {
   const { size, mtimeMs } = await stat(path)
   const signature = `${size}:${mtimeMs}`
   const cached = fileHashCache.get(path)
