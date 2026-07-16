@@ -1,9 +1,11 @@
 import AdmZip from 'adm-zip'
+import { BrowserWindow } from 'electron'
 import { mkdir, writeFile } from 'fs/promises'
 import { dirname, join } from 'path'
+import { IpcChannel } from '@shared/ipc-channels'
 import { getModrinthVersion, modrinthProvider } from '../discover/modrinth'
 import { downloadAll, type DownloadTask } from '../minecraft/install'
-import { createModpack, deleteModpack, instanceDirFor, updateModpack } from './store'
+import { adoptUnknownInstances, createModpack, deleteModpack, instanceDirFor, listModpacks, updateModpack } from './store'
 import type { ModLoader, Modpack } from '@shared/types'
 
 /**
@@ -69,6 +71,14 @@ function safeJoin(rootDir: string, relPath: string): string {
 
 export interface PackInstallReporter {
   (pack: Modpack, percent: number, message: string): void
+}
+
+async function broadcastModpackState(): Promise<void> {
+  await adoptUnknownInstances()
+  const modpacks = listModpacks()
+  for (const win of BrowserWindow.getAllWindows()) {
+    win.webContents.send(IpcChannel.ModpackStateChanged, modpacks)
+  }
 }
 
 export async function installModrinthPack(
@@ -200,6 +210,8 @@ async function installInstanceZip(
     gameVersion: data.gameVersion ?? '',
     loaderVersion: data.loaderVersion ?? null
   })
+  await broadcastModpackState()
+  report(pack, 0, 'Preparing files')
   // createModpack only takes loader/version; carry the rest over, and turn
   // an unknown version into null so launch prompts for one instead of
   // trying to install Minecraft "".
@@ -208,6 +220,7 @@ async function installInstanceZip(
     memoryMb: data.memoryMb ?? pack.memoryMb,
     javaArgs: data.javaArgs ?? pack.javaArgs
   })
+  await broadcastModpackState()
 
   const instanceDir = instanceDirFor(pack)
   try {
@@ -257,6 +270,8 @@ async function installPackFromZip(
   const loaderVersion = loaderDep !== undefined ? index.dependencies[loaderDep[0]] : null
 
   const pack = await createModpack({ name: index.name, loader, gameVersion, loaderVersion })
+  await broadcastModpackState()
+  report(pack, 0, 'Preparing files')
   const instanceDir = instanceDirFor(pack)
 
   try {
@@ -266,7 +281,10 @@ async function installPackFromZip(
       // a missing icon just leaves the default glyph.
       const project = await modrinthProvider.getProject(projectId).catch(() => null)
       const icon = await fetchIconDataUrl(project?.iconUrl ?? null)
-      if (icon !== null) updateModpack(pack.id, { icon })
+      if (icon !== null) {
+        updateModpack(pack.id, { icon })
+        await broadcastModpackState()
+      }
     }
 
     report(pack, 5, 'Preparing files')

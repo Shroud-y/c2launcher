@@ -23,15 +23,25 @@ export default function ModpackCard({ modpack, tint = modpack.iconTint }: Modpac
   const gameState = useModpackStore((s) => s.gameStates[modpack.id])
 
   const isRunning = gameState === 'running' || gameState === 'launching'
+  const isInstalling = progress !== undefined
   const subtitle =
-    progress !== undefined
-      ? `${progress.message} (${progress.percent}%)`
+    isInstalling
+      ? `Installing… ${progress.message} (${progress.percent}%)`
       : isRunning
         ? 'Running'
         : formatSubtitle(modpack)
 
   return (
-    <button type="button" className={styles.card} onClick={() => openModpack(modpack.id)}>
+    <button
+      type="button"
+      className={styles.card}
+      onClick={() => {
+        if (isInstalling) return
+        openModpack(modpack.id)
+      }}
+      disabled={isInstalling}
+      aria-disabled={isInstalling}
+    >
       {isRunning && <span className={styles.runningDot} aria-hidden="true" />}
       <span className={`${styles.icon} ${TINT_CLASS[tint]}`}>
         {(modpack.icon ?? null) !== null ? (

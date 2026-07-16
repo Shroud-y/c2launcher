@@ -68,6 +68,9 @@ const api = {
       ipcRenderer.invoke(IpcChannel.ModpackMods, id, category),
     contentUpdates: (id: string, category: InstallableCategory): Promise<ContentUpdate[]> =>
       ipcRenderer.invoke(IpcChannel.ModpackContentUpdates, id, category),
+    onCreated: (cb: (m: Modpack) => void): (() => void) => subscribe(IpcChannel.ModpackCreated, cb),
+    onStateChanged: (cb: (modpacks: Modpack[]) => void): (() => void) =>
+      subscribe(IpcChannel.ModpackStateChanged, cb),
     toggleContent: (
       id: string,
       category: InstallableCategory,

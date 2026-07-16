@@ -8,6 +8,8 @@
  */
 export enum IpcChannel {
   ModpackList = 'modpack:list',
+  ModpackCreated = 'modpack:created',
+  ModpackStateChanged = 'modpack:state-changed',
   ModpackCreate = 'modpack:create',
   ModpackLaunch = 'modpack:launch',
   ModpackInstallMod = 'modpack:install-mod',

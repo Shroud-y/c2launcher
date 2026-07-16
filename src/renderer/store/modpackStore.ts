@@ -39,6 +39,14 @@ function stripIpcPrefix(message: string): string {
 
 let subscribed = false
 
+function upsertModpack(modpacks: Modpack[], modpack: Modpack): Modpack[] {
+  const index = modpacks.findIndex((item) => item.id === modpack.id)
+  if (index === -1) return [...modpacks, modpack]
+  const next = [...modpacks]
+  next[index] = modpack
+  return next
+}
+
 export const useModpackStore = create<ModpackState>((set, get) => ({
   modpacks: [],
   loaded: false,
@@ -55,14 +63,16 @@ export const useModpackStore = create<ModpackState>((set, get) => ({
 
   create: async (params): Promise<Modpack> => {
     const modpack = await window.api.modpack.create(params)
-    set({ modpacks: [...get().modpacks, modpack] })
+    set((state) => ({ modpacks: upsertModpack(state.modpacks, modpack) }))
     return modpack
   },
 
   importModpack: async (): Promise<Modpack | null> => {
     const modpack = await window.api.modpack.importModpack()
     // Null means the file dialog was cancelled.
-    if (modpack !== null) set({ modpacks: [...get().modpacks, modpack] })
+    if (modpack !== null) {
+      set((state) => ({ modpacks: upsertModpack(state.modpacks, modpack) }))
+    }
     return modpack
   },
 
@@ -104,6 +114,10 @@ export const useModpackStore = create<ModpackState>((set, get) => ({
   startEventSubscriptions: (): void => {
     if (subscribed) return
     subscribed = true
+
+    window.api.modpack.onStateChanged((modpacks) => {
+      set({ modpacks, loaded: true })
+    })
 
     window.api.modpack.onInstallProgress((p) => {
       const progress = { ...get().installProgress }
