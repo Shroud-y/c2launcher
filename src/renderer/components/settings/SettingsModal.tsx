@@ -249,7 +249,7 @@ export default function SettingsModal(): JSX.Element {
               disabled={migrating}
               onClick={() => void changeDataDir()}
             >
-              Change…
+              Change
             </button>
             {settings?.dataDirIsDefault === false && (
               <button

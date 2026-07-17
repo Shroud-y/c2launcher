@@ -108,14 +108,17 @@ export function registerSettingsIpc(): void {
       return {
         status: 'error',
         message:
-          'That folder is inside the launcher installation folder — launcher updates ' +
+          'That folder is inside the launcher installation folder. Launcher updates ' +
           'erase it, destroying your game data. Choose a folder outside the installation folder.'
       }
     }
 
-    // A nested source/target would recurse forever while copying and could wipe
-    // the freshly copied data when the source is deleted afterwards.
-    if (isInside(target, source) || isInside(source, target)) {
+    // A target inside the source would recurse forever while copying and could
+    // wipe the freshly copied data when the source is deleted afterwards. A
+    // target that is the source's parent is safe: only the dedicated
+    // `instances` and `minecraft` children are copied, so they become sibling
+    // folders next to the current data directory.
+    if (isInside(target, source)) {
       return {
         status: 'error',
         message: 'Choose a folder that is not inside the current data folder (or vice versa).'
@@ -143,38 +146,14 @@ export function registerSettingsIpc(): void {
         return {
           status: 'error',
           message:
-            'The chosen folder already contains game data. Pick an empty folder, or use ' +
-            '"Keep in place" to point the launcher there without moving anything.'
+            'The chosen folder already contains game data. Pick an empty folder'
         }
       }
     }
 
-    const choiceOptions = {
-      type: 'question' as const,
-      buttons: ['Move', 'Copy', 'Keep in place', 'Cancel'],
-      defaultId: 0,
-      cancelId: 3,
-      title: 'Move game data?',
-      message: 'Move your instances and game files to the new folder?',
-      detail:
-        'Move — copy to the new folder, then delete the originals.\n' +
-        'Copy — copy to the new folder and keep the originals.\n' +
-        'Keep in place — point the launcher at the new folder without moving anything.'
-    }
-    const { response } =
-      win !== null
-        ? await dialog.showMessageBox(win, choiceOptions)
-        : await dialog.showMessageBox(choiceOptions)
-
-    // Button order above: 0 Move, 1 Copy, 2 Keep in place, 3 Cancel.
-    if (response === 3) return { status: 'canceled' }
-    if (response === 2) {
-      setDataDirOverride(target)
-      app.relaunch()
-      app.exit(0)
-      return { status: 'ok' }
-    }
-    const move = response === 0 // otherwise Copy
+    // Moving is automatic: copy the data first, then remove the source only
+    // after the copy completes successfully.
+    const move = true
 
     // Sum what we are about to copy and make sure the target can hold it.
     let totalBytes = 0
