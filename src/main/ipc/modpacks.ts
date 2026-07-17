@@ -248,7 +248,11 @@ async function runLaunch(modpack: Modpack, _sender: WebContents): Promise<void> 
 }
 
 export function registerModpackIpc(): void {
+  // Reconcile the registry at startup as well as on the first renderer
+  // request, so manually deleted instances disappear immediately.
   void migrateInstanceDirs()
+    .then(() => adoptUnknownInstances())
+    .catch((err: unknown) => console.error('Modpack reconciliation failed:', err))
 
   ipcMain.handle(IpcChannel.ModpackList, async (): Promise<Modpack[]> => {
     // Awaited here (not just at startup) so the renderer never sees

@@ -278,10 +278,21 @@ export function adoptUnknownInstances(): Promise<void> {
  */
 async function runAdoption(): Promise<void> {
   const root = instancesRoot()
+  // If the data volume is temporarily unavailable, preserve the registry
+  // rather than interpreting every instance as manually deleted.
   if (!existsSync(root)) return
 
+  // Remove registry records whose instance folder was deleted outside the
+  // launcher. The registry is metadata only; the folder is the source of
+  // truth for whether an instance still exists.
+  const registered = listModpacks()
+  const present = registered.filter((pack) => existsSync(instanceDirFor(pack)))
+  if (present.length !== registered.length) {
+    getStore().set('modpacks', present)
+  }
+
   const known = new Set(
-    listModpacks().map((m) => ((m.dirName ?? '') === '' ? m.id : m.dirName).toLowerCase())
+    present.map((m) => ((m.dirName ?? '') === '' ? m.id : m.dirName).toLowerCase())
   )
 
   const entries = await readdir(root, { withFileTypes: true })
