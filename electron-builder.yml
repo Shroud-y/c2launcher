@@ -13,6 +13,11 @@ directories:
   output: dist
   buildResources: build
 
+# Swaps in the native splash stub as ${PRODUCT_FILENAME}.exe and renames the
+# Electron binary to ${PRODUCT_FILENAME}.bin.exe. See scripts/afterPack.cjs for
+# why this is a filename takeover rather than an extra executable.
+afterPack: scripts/afterPack.cjs
+
 # Ship the compiled output, the runtime manifest, and resources/. The latter
 # holds runtime assets (e.g. the tray icon) that electron-vite's `?asset`
 # imports reference at run time as join(__dirname, '../../resources/...') —

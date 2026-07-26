@@ -1,6 +1,11 @@
 node_modules/
 out/
 dist/
+
+# Intermediate output of `zig rc` when building the native splash stub. The
+# linked result, build/bin/splash.exe, IS committed on purpose so that
+# `pnpm dist` works on a machine without a compiler.
+native/splash/*.res
 *.log
 .DS_Store
 *.tsbuildinfo

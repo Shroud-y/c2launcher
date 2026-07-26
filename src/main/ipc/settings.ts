@@ -22,6 +22,7 @@ import {
   isInside
 } from '../settings/dataMigrate'
 import { getInstallDir } from '../settings/installDirGuard'
+import { relaunchApp } from '../splashHandoff'
 import { hasRunningGames } from './modpacks'
 
 const execFileAsync = promisify(execFile)
@@ -134,7 +135,7 @@ export function registerSettingsIpc(): void {
     // Nothing to move — just repoint and relaunch, the original behaviour.
     if (present.length === 0) {
       setDataDirOverride(target)
-      app.relaunch()
+      relaunchApp()
       app.exit(0)
       return { status: 'ok' }
     }
@@ -207,7 +208,7 @@ export function registerSettingsIpc(): void {
     }
 
     setDataDirOverride(target)
-    app.relaunch()
+    relaunchApp()
     app.exit(0)
     return { status: 'ok' }
   })
@@ -224,7 +225,7 @@ export function registerSettingsIpc(): void {
 
   ipcMain.handle(IpcChannel.SettingsResetDataDir, (): void => {
     setDataDirOverride(null)
-    app.relaunch()
+    relaunchApp()
     app.exit(0)
   })
 }

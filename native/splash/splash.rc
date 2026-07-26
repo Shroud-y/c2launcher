@@ -1,0 +1,53 @@
+// Resources for the splash stub. Compiled by `zig rc` (resinator).
+//
+// The VERSIONINFO block deliberately mirrors the Electron binary's own
+// metadata. An unsigned exe that spawns a second unsigned exe is a known AV
+// heuristic; matching company/product strings, no packing, and both binaries
+// living in the same install dir is what keeps this looking like what it is.
+// Keep FILEVERSION/PRODUCTVERSION in step with package.json — build.mjs
+// verifies this and fails the build on a mismatch.
+
+#include <windows.h>
+
+#define IDR_LOGO_PNG 101
+
+// The app icon, embedded as a PNG and decoded at runtime by GDI+. Kept as a
+// PNG rather than a BMP so there is no build-time image conversion step.
+IDR_LOGO_PNG RCDATA "logo.png"
+
+// Icon so the stub shows the app icon in the taskbar and Alt-Tab, matching the
+// real binary. ID 1 is what the shell picks for an exe's default icon.
+1 ICON "icon.ico"
+
+// Application manifest: per-monitor DPI v2 (crisp on scaled displays) and
+// asInvoker (the launcher must never trigger a UAC prompt).
+1 RT_MANIFEST "splash.manifest"
+
+1 VERSIONINFO
+FILEVERSION 0,2,1,0
+PRODUCTVERSION 0,2,1,0
+FILEFLAGSMASK 0x3fL
+FILEFLAGS 0x0L
+FILEOS VOS_NT_WINDOWS32
+FILETYPE VFT_APP
+FILESUBTYPE VFT2_UNKNOWN
+BEGIN
+  BLOCK "StringFileInfo"
+  BEGIN
+    BLOCK "040904b0"
+    BEGIN
+      VALUE "CompanyName", "C\xB2 contributors"
+      VALUE "FileDescription", "C\xB2 Launcher"
+      VALUE "FileVersion", "0.2.1.0"
+      VALUE "InternalName", "C2 Launcher"
+      VALUE "LegalCopyright", "Copyright \xA9 2026 C\xB2 contributors"
+      VALUE "OriginalFilename", "C\xB2 Launcher.exe"
+      VALUE "ProductName", "C\xB2 Launcher"
+      VALUE "ProductVersion", "0.2.1.0"
+    END
+  END
+  BLOCK "VarFileInfo"
+  BEGIN
+    VALUE "Translation", 0x409, 1200
+  END
+END

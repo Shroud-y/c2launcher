@@ -4,6 +4,7 @@ import { join } from 'path'
 import { getDataDir, setDataDirOverride } from './store'
 import { MIGRATE_DIRS, copyTree, hasEntries } from './dataMigrate'
 import { DATA_DIR_IN_INSTALL_DIR_MESSAGE, isDataDirInInstallDir } from './installDirGuard'
+import { signalSplashReady } from '../splashHandoff'
 
 /**
  * Startup rescue for users whose data dir already points inside the install
@@ -14,6 +15,13 @@ import { DATA_DIR_IN_INSTALL_DIR_MESSAGE, isDataDirInInstallDir } from './instal
  */
 export async function rescueDataDirFromInstallDir(): Promise<void> {
   if (!isDataDirInInstallDir()) return
+
+  // Past this guard a modal dialog is certain, and the native splash is a
+  // topmost screen-centred window — exactly where a message box appears. Left
+  // up, it would cover the prompt, and the user would sit in front of a
+  // seemingly frozen splash with an invisible dialog waiting for input. Retire
+  // it first; the dialog becomes the startup UI from here on.
+  signalSplashReady()
 
   const source = getDataDir()
   const target = app.getPath('userData')

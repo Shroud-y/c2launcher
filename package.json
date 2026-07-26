@@ -1,6 +1,6 @@
 {
   "name": "c2-launcher",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "C² launcher",
   "main": "out/main/index.js",
   "author": "C² contributors",
@@ -10,6 +10,7 @@
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "dist": "electron-vite build && electron-builder",
+    "splash:build": "node native/splash/build.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.web.json && tsc --noEmit -p tsconfig.node.json"
   },
   "dependencies": {
