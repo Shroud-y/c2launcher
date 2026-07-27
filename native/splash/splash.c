@@ -25,8 +25,11 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <shellapi.h>  // CommandLineToArgvW
+#include <shlobj.h>    // SHGetFolderPathW, CSIDL_APPDATA
 #include <shlwapi.h>   // PathFileExistsW
+#include <stddef.h>    // ptrdiff_t
 #include <stdio.h>
+#include <string.h>  // strchr, strcmp
 
 #define IDR_LOGO_PNG 101
 
@@ -68,6 +71,31 @@ extern GpStatus WINAPI GdipSetInterpolationMode(GpGraphics *graphics, int mode);
 extern GpStatus WINAPI GdipSetPixelOffsetMode(GpGraphics *graphics, int mode);
 extern GpStatus WINAPI GdipSetSmoothingMode(GpGraphics *graphics, int mode);
 
+// Direct pixel access, for re-tinting the logo (see tintLogo).
+typedef struct GpRectI {
+  INT X, Y, Width, Height;
+} GpRectI;
+
+typedef struct GpBitmapData {
+  UINT Width;
+  UINT Height;
+  INT Stride;
+  INT PixelFormat;
+  void *Scan0;
+  UINT_PTR Reserved;
+} GpBitmapData;
+
+#define GdipLockRead 1
+#define GdipLockWrite 2
+// PixelFormat32bppARGB — straight (non-premultiplied) alpha, laid out B,G,R,A.
+#define GdipFormat32bppARGB 0x0026200A
+
+extern GpStatus WINAPI GdipGetImageWidth(GpImage *image, UINT *width);
+extern GpStatus WINAPI GdipGetImageHeight(GpImage *image, UINT *height);
+extern GpStatus WINAPI GdipBitmapLockBits(GpImage *bitmap, const GpRectI *rect, UINT flags,
+                                          INT format, GpBitmapData *locked);
+extern GpStatus WINAPI GdipBitmapUnlockBits(GpImage *bitmap, GpBitmapData *locked);
+
 // ---------------------------------------------------------------------------
 // Layout / theme. Colours match the renderer's --bg / --text tokens so the
 // handoff to the real window is not a visible jump.
@@ -79,17 +107,22 @@ extern GpStatus WINAPI GdipSetSmoothingMode(GpGraphics *graphics, int mode);
 #define BAR_W 300
 #define BAR_H 4
 
-// COL_BG matches the BrowserWindow backgroundColor in src/main/index.ts, and
-// COL_ACCENT / COL_BORDER match the default "midnight" theme in
-// src/renderer/theme.ts (accent #2f9c95 is shared by every built-in preset and
-// is the colour of the logo). The stub cannot read the user's chosen theme —
-// that lives in renderer localStorage — so it tracks the defaults.
-#define COL_BG RGB(0x0f, 0x11, 0x17)
-#define COL_BORDER RGB(0x21, 0x26, 0x2d)
-#define COL_TEXT RGB(0xe8, 0xea, 0xf0)
-#define COL_DIM RGB(0x8a, 0x91, 0xa6)
-#define COL_TRACK RGB(0x1e, 0x22, 0x2e)
-#define COL_ACCENT RGB(0x2f, 0x9c, 0x95)
+// Defaults, used until the theme cache is read (see applyThemeFile). They match
+// the BrowserWindow backgroundColor in src/main/index.ts and the "midnight"
+// preset in src/renderer/theme.ts, so a first run with no cache looks like the
+// app it is about to open.
+//
+// Not #defines: applyThemeFile overwrites them at startup with the user's
+// actual theme, per-key, so a file that only parses halfway still leaves the
+// rest at sane values.
+static COLORREF g_colBg = RGB(0x0f, 0x11, 0x17);
+static COLORREF g_colBorder = RGB(0x21, 0x26, 0x2d);
+static COLORREF g_colText = RGB(0xe8, 0xea, 0xf0);
+static COLORREF g_colDim = RGB(0x8a, 0x91, 0xa6);
+static COLORREF g_colTrack = RGB(0x1e, 0x22, 0x2e);
+static COLORREF g_colAccent = RGB(0x2f, 0x9c, 0x95);
+// The logo's rounded tile. Only ever used to re-tint the embedded PNG.
+static COLORREF g_colPanel = RGB(0x0f, 0x0f, 0x0f);
 
 #define TIMER_ANIM 1
 #define TIMER_POLL 2
@@ -111,6 +144,96 @@ static int g_sweep = 0;
 static wchar_t g_readyFile[MAX_PATH] = {0};
 static wchar_t g_statusFile[MAX_PATH] = {0};
 static wchar_t g_status[128] = L"Starting…";
+
+// ---------------------------------------------------------------------------
+// Theme cache. Written by src/main/splashTheme.ts whenever the user changes
+// theme; read here at startup. The colours are therefore always one launch
+// behind, which is unavoidable — the theme lives in renderer localStorage, and
+// the whole point of this program is to run before that exists.
+//
+// Both the path and the `key=rrggbb` format are a contract with
+// src/main/splashTheme.ts. Any change there needs a rebuild here.
+// ---------------------------------------------------------------------------
+
+// Parses exactly six hex digits followed by a terminator. Anything else is
+// rejected rather than partially accepted, so a truncated write cannot produce
+// a plausible-looking wrong colour.
+static BOOL parseHexColor(const char *s, COLORREF *out) {
+  unsigned value = 0;
+  for (int i = 0; i < 6; i++) {
+    char c = s[i];
+    unsigned digit;
+    if (c >= '0' && c <= '9') digit = (unsigned)(c - '0');
+    else if (c >= 'a' && c <= 'f') digit = (unsigned)(c - 'a' + 10);
+    else if (c >= 'A' && c <= 'F') digit = (unsigned)(c - 'A' + 10);
+    else return FALSE;
+    value = (value << 4) | digit;
+  }
+  if (s[6] != 0) return FALSE;
+  *out = RGB((value >> 16) & 0xff, (value >> 8) & 0xff, value & 0xff);
+  return TRUE;
+}
+
+static void applyThemeLine(char *line) {
+  char *eq = strchr(line, '=');
+  if (!eq) return;
+  *eq = 0;
+  const char *value = eq + 1;
+
+  COLORREF parsed;
+  if (!parseHexColor(value, &parsed)) return;
+
+  if (strcmp(line, "bg") == 0) g_colBg = parsed;
+  else if (strcmp(line, "panel") == 0) g_colPanel = parsed;
+  else if (strcmp(line, "accent") == 0) g_colAccent = parsed;
+  else if (strcmp(line, "muted") == 0) g_colDim = parsed;
+  else if (strcmp(line, "hover") == 0) g_colTrack = parsed;
+  else if (strcmp(line, "border") == 0) g_colBorder = parsed;
+}
+
+// Same sRGB-weighted luminance and 0.55 threshold as contrastOn() in
+// src/renderer/theme.ts. The wordmark is picked this way rather than taken from
+// the theme's own text colour, which some presets set quite dim (midnight uses
+// #737373) — fine for body text, washed out for the one word on a splash.
+static COLORREF contrastOn(COLORREF c) {
+  unsigned lum = 2126u * GetRValue(c) + 7152u * GetGValue(c) + 722u * GetBValue(c);
+  return lum > 1402500u ? RGB(0x14, 0x10, 0x19) : RGB(0xf5, 0xf5, 0xf5);
+}
+
+static void applyThemeFile(void) {
+  wchar_t appData[MAX_PATH];
+  // userData is pinned to <appData>/c2launcher in src/main/index.ts; this must
+  // track it. CSIDL_APPDATA is the roaming folder, i.e. %APPDATA%.
+  if (SHGetFolderPathW(NULL, CSIDL_APPDATA, NULL, 0, appData) != S_OK) return;
+
+  wchar_t path[MAX_PATH];
+  if (_snwprintf(path, MAX_PATH, L"%s\\c2launcher\\splash-theme", appData) < 0) return;
+  path[MAX_PATH - 1] = 0;
+
+  HANDLE f = CreateFileW(path, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
+                         OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+  // Missing file is the normal first-run state, not an error.
+  if (f == INVALID_HANDLE_VALUE) return;
+
+  char buf[512];
+  DWORD read = 0;
+  BOOL ok = ReadFile(f, buf, sizeof(buf) - 1, &read, NULL);
+  CloseHandle(f);
+  if (!ok || read == 0) return;
+  buf[read] = 0;
+
+  for (char *line = buf; *line;) {
+    char *end = line;
+    while (*end && *end != '\n' && *end != '\r') end++;
+    BOOL last = (*end == 0);
+    *end = 0;
+    applyThemeLine(line);
+    if (last) break;
+    line = end + 1;
+  }
+
+  g_colText = contrastOn(g_colBg);
+}
 
 // ---------------------------------------------------------------------------
 // Logo: decode the PNG embedded as RCDATA. GDI+ can decode straight from an
@@ -148,6 +271,64 @@ static void loadLogo(void) {
   stream->lpVtbl->Release(stream);
 }
 
+// logo.png is built from exactly two colours: a #0f0f0f rounded tile and the
+// #2f9c95 mark, with antialiased edges blending between them. Every opaque
+// pixel is therefore tile + t*(mark - tile) for some t, so recovering t and
+// re-mixing with the theme's own two colours recolours the edges correctly.
+//
+// A GDI+ remap table (GdipSetImageAttributesRemapTable) would have been less
+// code but only matches exact colours, leaving every antialiased edge pixel at
+// the original teal — a visible fringe around the whole mark.
+//
+// The green channel carries t: it separates the two source colours by 0x8d,
+// far more than red (0x20) or blue (0x86), so quantisation error is smallest.
+#define LOGO_SRC_TILE_G 0x0f
+#define LOGO_SRC_MARK_G 0x9c
+
+static BYTE lerp8(BYTE from, BYTE to, int t) {
+  return (BYTE)((int)from + (((int)to - (int)from) * t) / 255);
+}
+
+static void tintLogo(void) {
+  if (!g_logo) return;
+
+  UINT w = 0, h = 0;
+  if (GdipGetImageWidth(g_logo, &w) != GdipOk || GdipGetImageHeight(g_logo, &h) != GdipOk) return;
+  if (w == 0 || h == 0) return;
+
+  GpRectI rect = {0, 0, (INT)w, (INT)h};
+  GpBitmapData data = {0};
+  if (GdipBitmapLockBits(g_logo, &rect, GdipLockRead | GdipLockWrite, GdipFormat32bppARGB,
+                         &data) != GdipOk) {
+    return;  // logo stays teal; still better than no logo
+  }
+
+  const BYTE tileR = GetRValue(g_colPanel), tileG = GetGValue(g_colPanel),
+             tileB = GetBValue(g_colPanel);
+  const BYTE markR = GetRValue(g_colAccent), markG = GetGValue(g_colAccent),
+             markB = GetBValue(g_colAccent);
+
+  for (UINT y = 0; y < h; y++) {
+    BYTE *row = (BYTE *)data.Scan0 + (ptrdiff_t)y * data.Stride;
+    for (UINT x = 0; x < w; x++) {
+      BYTE *px = row + x * 4;  // B, G, R, A
+      // Fully transparent pixels (the rounded corners) carry no meaningful
+      // colour to recover t from.
+      if (px[3] == 0) continue;
+
+      int t = ((int)px[1] - LOGO_SRC_TILE_G) * 255 / (LOGO_SRC_MARK_G - LOGO_SRC_TILE_G);
+      if (t < 0) t = 0;
+      if (t > 255) t = 255;
+
+      px[0] = lerp8(tileB, markB, t);
+      px[1] = lerp8(tileG, markG, t);
+      px[2] = lerp8(tileR, markR, t);
+    }
+  }
+
+  GdipBitmapUnlockBits(g_logo, &data);
+}
+
 // ---------------------------------------------------------------------------
 // Paint. Fully double-buffered: the animated bar repaints every 16ms and
 // drawing straight to the window DC would tear and flicker.
@@ -162,12 +343,12 @@ static void paint(HWND hwnd, HDC target, const RECT *rc) {
   HBITMAP oldBmp = (HBITMAP)SelectObject(mem, bmp);
 
   // Background + 1px border.
-  HBRUSH bg = CreateSolidBrush(COL_BG);
+  HBRUSH bg = CreateSolidBrush(g_colBg);
   RECT full = {0, 0, w, h};
   FillRect(mem, &full, bg);
   DeleteObject(bg);
 
-  HPEN border = CreatePen(PS_SOLID, 1, COL_BORDER);
+  HPEN border = CreatePen(PS_SOLID, 1, g_colBorder);
   HPEN oldPen = (HPEN)SelectObject(mem, border);
   HBRUSH oldBrush = (HBRUSH)SelectObject(mem, GetStockObject(NULL_BRUSH));
   Rectangle(mem, 0, 0, w, h);
@@ -191,13 +372,13 @@ static void paint(HWND hwnd, HDC target, const RECT *rc) {
 
   // Wordmark.
   HFONT oldFont = (HFONT)SelectObject(mem, g_fontTitle);
-  SetTextColor(mem, COL_TEXT);
+  SetTextColor(mem, g_colText);
   RECT titleRect = {0, 34 + LOGO_PX + 14, w, 34 + LOGO_PX + 48};
   DrawTextW(mem, L"C² Launcher", -1, &titleRect, DT_CENTER | DT_SINGLELINE | DT_TOP);
 
   // Status line.
   SelectObject(mem, g_fontStatus);
-  SetTextColor(mem, COL_DIM);
+  SetTextColor(mem, g_colDim);
   RECT statusRect = {12, h - 58, w - 12, h - 38};
   DrawTextW(mem, g_status, -1, &statusRect,
             DT_CENTER | DT_SINGLELINE | DT_TOP | DT_END_ELLIPSIS);
@@ -206,7 +387,7 @@ static void paint(HWND hwnd, HDC target, const RECT *rc) {
   // Indeterminate sweep bar: a short accent segment travelling along a track.
   int barX = (w - BAR_W) / 2;
   int barY = h - 28;
-  HBRUSH track = CreateSolidBrush(COL_TRACK);
+  HBRUSH track = CreateSolidBrush(g_colTrack);
   RECT trackRect = {barX, barY, barX + BAR_W, barY + BAR_H};
   FillRect(mem, &trackRect, track);
   DeleteObject(track);
@@ -218,7 +399,7 @@ static void paint(HWND hwnd, HDC target, const RECT *rc) {
   int clipL = segX < barX ? barX : segX;
   int clipR = segX + segW > barX + BAR_W ? barX + BAR_W : segX + segW;
   if (clipR > clipL) {
-    HBRUSH accent = CreateSolidBrush(COL_ACCENT);
+    HBRUSH accent = CreateSolidBrush(g_colAccent);
     RECT segRect = {clipL, barY, clipR, barY + BAR_H};
     FillRect(mem, &segRect, accent);
     DeleteObject(accent);
@@ -406,12 +587,16 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrev, PWSTR cmdLine, int sho
   if (g_readyFile[0]) DeleteFileW(g_readyFile);
   if (g_statusFile[0]) DeleteFileW(g_statusFile);
 
+  // Before the window class and the first paint, both of which use the colours.
+  applyThemeFile();
+
   GdiplusStartupInput si = {1, NULL, FALSE, FALSE};
   GdiplusStartup(&g_gdip, &si, NULL);
   // Must come after GdiplusStartup: GdipCreateBitmapFromStream fails with
   // GdiplusNotInitialized before it, and this is the startup hot path — no
   // point copying and failing to decode 32KB of PNG twice.
   loadLogo();
+  tintLogo();
 
   g_fontTitle = CreateFontW(-20, 0, 0, 0, FW_SEMIBOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
                             OUT_TT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,

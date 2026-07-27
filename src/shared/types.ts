@@ -56,6 +56,31 @@ export interface AppSettings {
   minimizeToTrayOnLaunch: boolean
 }
 
+/**
+ * The subset of a theme the native splash stub can use. Sent by the renderer
+ * whenever the theme changes and cached to disk, because the stub paints
+ * before Electron exists and cannot ask anyone what the current theme is — it
+ * always shows the *previous* run's choice.
+ *
+ * Every field must be a plain `#rrggbb` string: the stub is 500 lines of C and
+ * parses six hex digits, nothing else. Notably it cannot resolve the
+ * `color-mix()` expressions that the CSS variables use.
+ */
+export interface SplashTheme {
+  /** Window background. */
+  bg: string
+  /** Logo tile — the rounded square behind the mark. */
+  panel: string
+  /** Progress sweep, and the logo mark itself. */
+  accent: string
+  /** Status line under the wordmark. */
+  muted: string
+  /** Track behind the progress sweep. */
+  hover: string
+  /** 1px window border. */
+  border: string
+}
+
 /** Streamed to the renderer while game data is copied to a new data folder. */
 export interface DataMigrateProgress {
   /** Bytes copied so far across instances/ and minecraft/. */

@@ -21,6 +21,7 @@ import type {
   ProjectVersionInfo,
   SearchQuery,
   SearchResponse,
+  SplashTheme,
   UpdateDownloadProgress
 } from '@shared/types'
 
@@ -118,6 +119,9 @@ const api = {
       ipcRenderer.invoke(IpcChannel.SettingsSetGpuPref, enabled),
     setMinimizeToTray: (enabled: boolean): Promise<AppSettings> =>
       ipcRenderer.invoke(IpcChannel.SettingsSetMinimizeToTray, enabled),
+    /** Cache the current theme for the native splash to use on the next launch. */
+    setSplashTheme: (theme: SplashTheme): Promise<void> =>
+      ipcRenderer.invoke(IpcChannel.SettingsSetSplashTheme, theme),
     onDataMigrateProgress: (cb: (p: DataMigrateProgress) => void): (() => void) =>
       subscribe(IpcChannel.SettingsDataMigrateProgress, cb)
   },

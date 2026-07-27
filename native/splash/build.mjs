@@ -122,6 +122,8 @@ execFileSync(
     '-luser32',
     '-lole32',
     '-lshlwapi',
+    // SHGetFolderPathW (theme cache lookup) and CommandLineToArgvW.
+    '-lshell32',
     '-o',
     outExe
   ],

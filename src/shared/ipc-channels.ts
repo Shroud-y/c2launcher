@@ -37,6 +37,7 @@ export enum IpcChannel {
   SettingsResetDataDir = 'settings:reset-data-dir',
   SettingsSetGpuPref = 'settings:set-gpu-pref',
   SettingsSetMinimizeToTray = 'settings:set-minimize-to-tray',
+  SettingsSetSplashTheme = 'settings:set-splash-theme',
   AuthLogin = 'auth:login',
   AuthLogout = 'auth:logout',
   AuthGetProfile = 'auth:get-profile',

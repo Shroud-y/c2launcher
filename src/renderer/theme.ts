@@ -13,11 +13,20 @@ export interface Theme {
   colors: { bg: string; panel: string; accent: string; border: string }
   /** CSS variable overrides written to document.documentElement. */
   vars: Record<string, string>
+  /** The resolved colours behind `vars`, kept for consumers that cannot read
+   *  CSS — currently only the native splash stub, which parses hex. */
+  palette: Palette
   /** True for the user-editable Custom theme (renders the gear/edit button). */
   custom?: boolean
 }
 
-interface Palette {
+/**
+ * Every field is a plain `#rrggbb` string, with no `color-mix()` anywhere.
+ * That is a requirement, not a coincidence: `palette` is what gets handed to
+ * the native splash stub, whose parser understands six hex digits and nothing
+ * else. Derived shades belong in buildVars(), which CSS resolves.
+ */
+export interface Palette {
   bg: string
   card: string 
   accent: string 
@@ -54,7 +63,8 @@ function theme(id: string, label: string, p: Palette): Theme {
     id,
     label,
     colors: { bg: p.bg, panel: p.card, accent: p.accent, border: p.border },
-    vars: buildVars(p)
+    vars: buildVars(p),
+    palette: p
   }
 }
 
@@ -139,6 +149,30 @@ function hexToRgba(hex: string, alpha: number): string {
   return `rgba(${(n >> 16) & 0xff}, ${(n >> 8) & 0xff}, ${n & 0xff}, ${alpha})`
 }
 
+/**
+ * `color-mix(in srgb, a, b <pct>%)` computed up front as a hex literal.
+ *
+ * Same result the browser would produce, but the value stays parseable by
+ * things that are not a CSS engine — the palette is read by the native splash
+ * stub, which cannot resolve a color-mix() expression.
+ */
+function mixHex(a: string, b: string, pct: number): string {
+  const parse = (hex: string): number[] => {
+    const h = hex.replace('#', '')
+    const full = h.length === 3 ? h.split('').map((c) => c + c).join('') : h
+    const n = parseInt(full, 16)
+    return [(n >> 16) & 0xff, (n >> 8) & 0xff, n & 0xff]
+  }
+  const [ar, ag, ab] = parse(a)
+  const [br, bg, bb] = parse(b)
+  const t = pct / 100
+  const chan = (x: number, y: number): string =>
+    Math.round(x + (y - x) * t)
+      .toString(16)
+      .padStart(2, '0')
+  return `#${chan(ar, br)}${chan(ag, bg)}${chan(ab, bb)}`
+}
+
 /** Expand four swatches into the full palette using contrast-aware defaults. */
 function deriveCustomPalette(s: CustomSwatches): Palette {
   const text = contrastOn(s.bg)
@@ -147,8 +181,8 @@ function deriveCustomPalette(s: CustomSwatches): Palette {
     card: s.panel,
     accent: s.accent,
     text,
-    muted: `color-mix(in srgb, ${text}, ${s.bg} 45%)`,
-    hover: `color-mix(in srgb, ${s.panel}, ${text} 12%)`,
+    muted: mixHex(text, s.bg, 45),
+    hover: mixHex(s.panel, text, 12),
     border: s.border,
     onAccent: contrastOn(s.accent),
     glow: hexToRgba(s.accent, 0.5)
@@ -207,11 +241,36 @@ function writeVars(t: Theme): void {
   }
 }
 
+/**
+ * Hand the resolved colours to the main process, which caches them on disk for
+ * the native splash stub.
+ *
+ * The splash paints before Electron exists, so it can only ever show the
+ * previous launch's theme — there is no way to make this take effect now. Fire
+ * and forget: a failure here is cosmetic and must not disturb a theme switch.
+ */
+function cacheForSplash(t: Theme): void {
+  const p = t.palette
+  void window.api?.settings
+    .setSplashTheme({
+      bg: p.bg,
+      panel: p.card,
+      accent: p.accent,
+      muted: p.muted,
+      hover: p.hover,
+      border: p.border
+    })
+    .catch(() => undefined)
+}
+
 /** Writes a theme's variables to :root and remembers the choice. */
 export function applyTheme(id: string): void {
   const t = resolveTheme(id)
   writeVars(t)
   localStorage.setItem(STORAGE_KEY, id === CUSTOM_THEME_ID ? CUSTOM_THEME_ID : t.id)
+  // Also fires on startup (main.tsx), which re-heals a deleted or corrupt cache
+  // file without the user having to touch the theme picker.
+  cacheForSplash(t)
 }
 
 /** Live-preview swatches on :root without persisting the selection. Used while

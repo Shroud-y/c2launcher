@@ -4,7 +4,12 @@ import { mkdir, rm, statfs } from 'fs/promises'
 import { join, relative, resolve } from 'path'
 import { promisify } from 'util'
 import { IpcChannel } from '@shared/ipc-channels'
-import type { AppSettings, DataMigrateProgress, DataMigrateResult } from '@shared/types'
+import type {
+  AppSettings,
+  DataMigrateProgress,
+  DataMigrateResult,
+  SplashTheme
+} from '@shared/types'
 import {
   getDataDir,
   getSettings,
@@ -23,6 +28,7 @@ import {
 } from '../settings/dataMigrate'
 import { getInstallDir } from '../settings/installDirGuard'
 import { relaunchApp } from '../splashHandoff'
+import { writeSplashTheme } from '../splashTheme'
 import { hasRunningGames } from './modpacks'
 
 const execFileAsync = promisify(execFile)
@@ -221,6 +227,18 @@ export function registerSettingsIpc(): void {
   ipcMain.handle(IpcChannel.SettingsSetMinimizeToTray, (_e, enabled: boolean): AppSettings => {
     setMinimizeToTrayOnLaunch(enabled)
     return getSettings()
+  })
+
+  // Cache-only, and deliberately not awaited by the caller for its result:
+  // failing to theme the next launch's splash must never surface as an error in
+  // the middle of the user picking a colour. Worst case the stub keeps the
+  // previous colours.
+  ipcMain.handle(IpcChannel.SettingsSetSplashTheme, async (_e, theme: SplashTheme) => {
+    try {
+      await writeSplashTheme(theme)
+    } catch {
+      // Splash falls back to the last good file, or to its compiled-in defaults.
+    }
   })
 
   ipcMain.handle(IpcChannel.SettingsResetDataDir, (): void => {
