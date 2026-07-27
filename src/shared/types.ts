@@ -148,6 +148,24 @@ export interface GameLogLine {
   line: string
 }
 
+/**
+ * A game the main process considers running right now. Queried on load so the
+ * renderer can show the correct state for games adopted from a previous
+ * launcher run, whose 'running' event fired before it was listening.
+ */
+export interface RunningGame {
+  modpackId: string
+  startedAt: number
+  /** 'launching' until the game prints its first line, then 'running'. */
+  state: Extract<GameStateKind, 'launching' | 'running'>
+  /**
+   * Tail of the game's log file. Only populated for adopted games: a game this
+   * launcher started streams its whole log through ModpackGameLog, and seeding
+   * from the file too would double every line.
+   */
+  recentLogs: string[]
+}
+
 export interface InstalledContent {
   /** Actual file name on disk, including a .disabled suffix when off. */
   fileName: string

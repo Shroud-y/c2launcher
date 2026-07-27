@@ -58,7 +58,21 @@ export const useModpackStore = create<ModpackState>((set, get) => ({
 
   load: async (): Promise<void> => {
     const modpacks = await window.api.modpack.list()
-    set({ modpacks, loaded: true })
+    // Games survive the launcher now, so on startup some may already be
+    // running. Their 'running' state event fired during adoption, before this
+    // renderer existed, so seed it (and the log tail) here instead.
+    const running = await window.api.modpack.running()
+    const gameStates = { ...get().gameStates }
+    const logs = { ...get().logs }
+    for (const game of running) {
+      gameStates[game.modpackId] = game.state
+      // recentLogs is only sent for adopted games, and only the first load has
+      // nothing yet — never overwrite a log the event stream is already filling.
+      if (game.recentLogs.length > 0 && logs[game.modpackId] === undefined) {
+        logs[game.modpackId] = game.recentLogs.slice(-LOG_CAP)
+      }
+    }
+    set({ modpacks, loaded: true, gameStates, logs })
   },
 
   create: async (params): Promise<Modpack> => {

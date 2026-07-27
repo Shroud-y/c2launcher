@@ -24,6 +24,8 @@ export enum IpcChannel {
   ModpackUpdateSettings = 'modpack:update-settings',
   ModpackSetIcon = 'modpack:set-icon',
   ModpackStop = 'modpack:stop',
+  /** Games still running, including ones adopted from a previous launcher run. */
+  ModpackRunning = 'modpack:running',
   ModpackOpenFolder = 'modpack:open-folder',
   ModpackDelete = 'modpack:delete',
   MinecraftVersions = 'minecraft:versions',

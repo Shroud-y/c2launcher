@@ -13,7 +13,8 @@ import type {
   InstallProgress,
   ModLoader,
   Modpack,
-  ModpackSettings
+  ModpackSettings,
+  RunningGame
 } from '@shared/types'
 import {
   adoptUnknownInstances,
@@ -42,6 +43,15 @@ import { ensureVersionInstalled } from '../minecraft/install'
 import { applyLoader, listLoaderVersions, resolveLoaderVersion } from '../minecraft/loader'
 import { applyForgeLoader, listForgeLikeVersions, resolveForgeVersion } from '../minecraft/forge'
 import { launchGame } from '../minecraft/launch'
+import { readTailLines, tailFile } from '../minecraft/logTail'
+import {
+  gameLogPath,
+  isProcessAlive,
+  listRunningGames,
+  registerRunningGame,
+  unregisterRunningGame,
+  verifyGameProcess
+} from '../minecraft/runningGames'
 import { ensureMojangRuntime, findJava } from '../minecraft/java'
 import { getMinecraftSession } from '../auth/microsoftAuth'
 import { loadRefreshToken, saveRefreshToken } from '../auth/tokenStore'
@@ -51,7 +61,36 @@ import { getMainWindow, revealWindow } from '../index'
 import type { ChildProcess } from 'child_process'
 
 const busy = new Set<string>() // installing or running
-const runningProcesses = new Map<string, ChildProcess>()
+
+/** How much of a log file is replayed into the viewer for an adopted game. */
+const ADOPTED_LOG_BYTES = 256 * 1024
+const ADOPTED_LOG_LINES = 500
+
+/** How often an adopted game (no child handle to listen to) is probed. */
+const ADOPTED_POLL_MS = 1000
+
+/**
+ * A game the launcher is currently following.
+ *
+ * `child` is null for adopted games — ones spawned by a previous launcher run,
+ * which this process can only observe by PID.
+ */
+interface ActiveGame {
+  pid: number
+  startedAt: number
+  logFile: string
+  child: ChildProcess | null
+  /** Mirrors the last state broadcast, so a late-joining renderer can ask. */
+  state: 'launching' | 'running'
+  stopTail: () => void
+  flushTail: () => Promise<void>
+  poll: ReturnType<typeof setInterval> | null
+  hideTimer: ReturnType<typeof setTimeout> | null
+  /** Guards against finishing twice (child 'exit' racing the adoption poll). */
+  finished: boolean
+}
+
+const active = new Map<string, ActiveGame>()
 
 /**
  * True while any modpack is installing or running. Other subsystems (e.g.
@@ -125,6 +164,155 @@ async function resolveJava(
   return javaPath
 }
 
+/**
+ * Start following a running game: tail its log file, watch for its exit, and
+ * mark the modpack busy.
+ *
+ * Shared by a fresh launch (`child` is the process we spawned) and by adoption
+ * at startup (`child` is null — the game belongs to a previous launcher run and
+ * can only be observed by PID).
+ */
+function attachGame(params: {
+  modpackId: string
+  pid: number
+  startedAt: number
+  logFile: string
+  child: ChildProcess | null
+}): void {
+  const { modpackId, pid, startedAt, logFile, child } = params
+  const adopted = child === null
+
+  const game: ActiveGame = {
+    pid,
+    startedAt,
+    logFile,
+    child,
+    state: adopted ? 'running' : 'launching',
+    stopTail: () => undefined,
+    flushTail: () => Promise.resolve(),
+    poll: null,
+    hideTimer: null,
+    finished: false
+  }
+  active.set(modpackId, game)
+  busy.add(modpackId)
+
+  // An adopted game is by definition past the launching phase, and its existing
+  // log is replayed separately (see the ModpackRunning handler) — so its tail
+  // starts at the end of the file rather than replaying it line by line.
+  if (adopted) sendState({ modpackId, state: 'running' })
+
+  const tail = tailFile(logFile, {
+    fromEnd: adopted,
+    onLines: (lines) => {
+      if (game.state === 'launching') {
+        game.state = 'running'
+        sendState({ modpackId, state: 'running' })
+        // Delay hiding the launcher to the tray. A fast (e.g. vanilla) launch
+        // prints its first line almost instantly, so hiding on that line made
+        // the window vanish before the game window appeared — and a launch that
+        // crashes in the first moments would hide the launcher for no reason.
+        // Hide (not close) it, so the app stays alive and window-all-closed
+        // does not fire.
+        if (getMinimizeToTrayOnLaunch()) {
+          game.hideTimer = setTimeout(() => {
+            game.hideTimer = null
+            if (active.has(modpackId)) getMainWindow()?.hide()
+          }, 2000)
+        }
+      }
+      // stdout and stderr share one file, so the streams can no longer be told
+      // apart; the renderer only ever displayed the text.
+      for (const line of lines) sendLog({ modpackId, stream: 'stdout', line })
+    }
+  })
+  game.stopTail = tail.stop
+  game.flushTail = tail.flush
+
+  if (child !== null) {
+    child.on('error', (err) => {
+      void finishGame(modpackId, { message: err.message })
+    })
+    child.on('exit', (code) => {
+      void finishGame(modpackId, { exitCode: code ?? 0 })
+    })
+  } else {
+    // No child handle to get an exit event from — poll the PID instead. The
+    // exit code is unknowable this way; 0 keeps the UI from claiming a crash.
+    game.poll = setInterval(() => {
+      if (!isProcessAlive(pid)) void finishGame(modpackId, { exitCode: 0 })
+    }, ADOPTED_POLL_MS)
+  }
+}
+
+/**
+ * The single exit path for a running game: tears down the timers and the tail,
+ * clears the busy/running bookkeeping and reports the result.
+ *
+ * Reachable twice for the same game (a child's 'exit' can race an adoption
+ * poll), hence the `finished` latch.
+ */
+async function finishGame(
+  modpackId: string,
+  result: { exitCode?: number; message?: string }
+): Promise<void> {
+  const game = active.get(modpackId)
+  if (game === undefined || game.finished) return
+  game.finished = true
+
+  if (game.hideTimer !== null) clearTimeout(game.hideTimer)
+  if (game.poll !== null) clearInterval(game.poll)
+  // Drain anything written between the last poll and the exit — for a crash
+  // that is precisely the interesting part of the log.
+  await game.flushTail().catch(() => undefined)
+  game.stopTail()
+
+  active.delete(modpackId)
+  busy.delete(modpackId)
+  await unregisterRunningGame(modpackId)
+
+  if (result.message !== undefined) {
+    sendState({ modpackId, state: 'error', message: result.message })
+  } else {
+    const code = result.exitCode ?? 0
+    sendLog({ modpackId, stream: 'system', line: `Game exited with code ${code}` })
+    sendState({ modpackId, state: 'exited', exitCode: code })
+  }
+
+  // If we hid the launcher to the tray on launch, bring it back when the game
+  // exits. Only act on a still-hidden window so we don't steal focus if the
+  // user already reopened it from the tray. revealWindow re-activates it
+  // properly so Play is clickable immediately (see its note on Windows).
+  const win = getMainWindow()
+  if (win !== null && !win.isVisible()) revealWindow(win)
+}
+
+/**
+ * Re-adopt games left running by a previous launcher run.
+ *
+ * Must complete before the renderer is told what is running and before any
+ * launch is allowed, or the user gets a "Play" button for a live game and a
+ * second Java process writing into the same instance folder.
+ */
+async function reconcileRunningGames(): Promise<void> {
+  for (const record of await listRunningGames()) {
+    if (active.has(record.modpackId)) continue
+    const stillOurs =
+      getModpack(record.modpackId) !== null && (await verifyGameProcess(record.pid))
+    if (!stillOurs) {
+      await unregisterRunningGame(record.modpackId)
+      continue
+    }
+    attachGame({
+      modpackId: record.modpackId,
+      pid: record.pid,
+      startedAt: record.startedAt,
+      logFile: record.logFile,
+      child: null
+    })
+  }
+}
+
 async function runLaunch(modpack: Modpack, _sender: WebContents): Promise<void> {
   const modpackId = modpack.id
   if (modpack.gameVersion === null) {
@@ -175,6 +363,8 @@ async function runLaunch(modpack: Modpack, _sender: WebContents): Promise<void> 
   sendState({ modpackId, state: 'launching' })
   sendLog({ modpackId, stream: 'system', line: 'Starting game…' })
 
+  const logFile = gameLogPath(modpackId)
+
   const child = await launchGame({
     meta,
     javaPath,
@@ -182,76 +372,39 @@ async function runLaunch(modpack: Modpack, _sender: WebContents): Promise<void> 
     gameDir: instanceDirFor(modpack),
     memoryMb: modpack.memoryMb,
     extraJavaArgs: modpack.javaArgs,
-    session
+    session,
+    logFile
   })
 
-  runningProcesses.set(modpackId, child)
-  updateModpack(modpackId, { lastPlayedAt: Date.now() })
-
-  // Delay hiding the launcher to the tray. A fast (e.g. vanilla) launch prints
-  // its first line almost instantly, so hiding on that line made the window
-  // vanish before the game window appeared — and a launch that crashes in the
-  // first moments would hide the launcher for no reason. Arm a timer when the
-  // game reports running and only hide if it is genuinely still alive; cancel
-  // it the instant the process errors or exits.
-  let hideTimer: ReturnType<typeof setTimeout> | null = null
-  function clearHideTimer(): void {
-    if (hideTimer !== null) {
-      clearTimeout(hideTimer)
-      hideTimer = null
-    }
+  // No pid means the spawn failed outright; the 'error' event carries the
+  // reason, but there is nothing to follow or to record on disk.
+  const pid = child.pid
+  if (pid === undefined) {
+    child.once('error', (err) => {
+      sendState({ modpackId, state: 'error', message: err.message })
+    })
+    throw new Error('Failed to start the game process')
   }
 
-  let sawRunning = false
-  function onLine(stream: 'stdout' | 'stderr', chunk: Buffer): void {
-    for (const line of chunk.toString().split(/\r?\n/)) {
-      if (line.trim() === '') continue
-      if (!sawRunning) {
-        sawRunning = true
-        sendState({ modpackId, state: 'running' })
-        // Hide (not close) the launcher to the tray so the app stays alive
-        // and window-all-closed does not fire.
-        if (getMinimizeToTrayOnLaunch()) {
-          hideTimer = setTimeout(() => {
-            hideTimer = null
-            if (runningProcesses.has(modpackId)) getMainWindow()?.hide()
-          }, 2000)
-        }
-      }
-      sendLog({ modpackId, stream, line })
-    }
-  }
+  const startedAt = Date.now()
+  // Record before attaching: if the launcher dies in the next millisecond, the
+  // game is already running and this file is the only way back to it.
+  await registerRunningGame({ modpackId, pid, startedAt, logFile })
+  updateModpack(modpackId, { lastPlayedAt: startedAt })
 
-  child.stdout?.on('data', (c: Buffer) => onLine('stdout', c))
-  child.stderr?.on('data', (c: Buffer) => onLine('stderr', c))
-
-  child.on('error', (err) => {
-    clearHideTimer()
-    busy.delete(modpackId)
-    runningProcesses.delete(modpackId)
-    sendState({ modpackId, state: 'error', message: err.message })
-  })
-
-  child.on('close', (code) => {
-    clearHideTimer()
-    busy.delete(modpackId)
-    runningProcesses.delete(modpackId)
-    sendLog({ modpackId, stream: 'system', line: `Game exited with code ${code ?? 0}` })
-    sendState({ modpackId, state: 'exited', exitCode: code ?? 0 })
-    // If we hid the launcher to the tray on launch, bring it back when the
-    // game exits. Only act on a still-hidden window so we don't steal focus
-    // if the user already reopened it from the tray. revealWindow re-activates
-    // it properly so Play is clickable immediately (see its note on Windows).
-    const win = getMainWindow()
-    if (win !== null && !win.isVisible()) revealWindow(win)
-  })
+  // Last, and nothing may throw after it: the caller's error path clears the
+  // busy flag, which from here on belongs to the attached game.
+  attachGame({ modpackId, pid, startedAt, logFile, child })
 }
 
 export function registerModpackIpc(): void {
   // Reconcile the registry at startup as well as on the first renderer
-  // request, so manually deleted instances disappear immediately.
-  void migrateInstanceDirs()
+  // request, so manually deleted instances disappear immediately. Adopting
+  // still-running games comes last: it looks modpacks up by id, so the registry
+  // has to be settled first.
+  const startupReconcile = migrateInstanceDirs()
     .then(() => adoptUnknownInstances())
+    .then(() => reconcileRunningGames())
     .catch((err: unknown) => console.error('Modpack reconciliation failed:', err))
 
   ipcMain.handle(IpcChannel.ModpackList, async (): Promise<Modpack[]> => {
@@ -260,6 +413,26 @@ export function registerModpackIpc(): void {
     await migrateInstanceDirs()
     await adoptUnknownInstances()
     return listModpacks()
+  })
+
+  ipcMain.handle(IpcChannel.ModpackRunning, async (): Promise<RunningGame[]> => {
+    // Adoption has to finish first, or a launcher that has just started reports
+    // nothing running and offers Play for a live game.
+    await startupReconcile
+    return Promise.all(
+      [...active.entries()].map(async ([modpackId, game]) => ({
+        modpackId,
+        startedAt: game.startedAt,
+        state: game.state,
+        // Only adopted games (no child handle) need their log replayed. For a
+        // game this launcher started, the tail already streams every line as an
+        // event, and seeding from the file too would duplicate them.
+        recentLogs:
+          game.child === null
+            ? await readTailLines(game.logFile, ADOPTED_LOG_BYTES, ADOPTED_LOG_LINES)
+            : []
+      }))
+    )
   })
 
   ipcMain.handle(
@@ -539,13 +712,26 @@ export function registerModpackIpc(): void {
   )
 
   ipcMain.handle(IpcChannel.ModpackStop, (_e, id: string): void => {
-    const child = runningProcesses.get(id)
-    if (child === undefined) return
+    const game = active.get(id)
+    if (game === undefined) return
     sendLog({ modpackId: id, stream: 'system', line: 'Stopping game…' })
-    child.kill()
+    if (game.child !== null) {
+      game.child.kill()
+      return
+    }
+    // Adopted game: no child handle, only a PID.
+    try {
+      process.kill(game.pid)
+    } catch {
+      // Already gone — the liveness poll will notice and finish it.
+    }
   })
 
   ipcMain.handle(IpcChannel.ModpackLaunch, async (event, id: string): Promise<void> => {
+    // A game adopted from a previous run must be visible in `busy` before the
+    // check below, or the same instance folder gets a second Java process.
+    await startupReconcile
+
     const modpack = getModpack(id)
     if (modpack === null) throw new Error('Modpack not found')
     if (busy.has(id)) throw new Error('This modpack is already installing or running')

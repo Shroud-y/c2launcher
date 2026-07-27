@@ -1,6 +1,6 @@
 import { spawn, type ChildProcess } from 'child_process'
-import { delimiter, join } from 'path'
-import { mkdir } from 'fs/promises'
+import { delimiter, dirname, join } from 'path'
+import { mkdir, open, writeFile } from 'fs/promises'
 import { app } from 'electron'
 import { clientJarPath } from './install'
 import { setHighPerformanceGpu } from './gpu'
@@ -16,6 +16,8 @@ export interface LaunchContext {
   memoryMb: number
   extraJavaArgs: string
   session: MinecraftSession
+  /** File the game's stdout/stderr is redirected to; truncated on launch. */
+  logFile: string
 }
 
 function flattenArguments(entries: ArgumentEntry[] | undefined): string[] {
@@ -93,11 +95,36 @@ export async function launchGame(ctx: LaunchContext): Promise<ChildProcess> {
   // GPU choice follows the runtime the launcher actually spawns.
   if (getPreferDedicatedGpu()) await setHighPerformanceGpu(ctx.javaPath)
 
+  // Redirect the game's output to a file instead of a pipe. A pipe ties the
+  // game's life to ours twice over: its 64KB buffer fills the moment nobody is
+  // reading, blocking the game forever if the launcher hangs or dies, and the
+  // handle keeps the two processes coupled. A file has no reader to lose.
+  await mkdir(dirname(ctx.logFile), { recursive: true })
+  // Truncate, then hand the child an append-mode descriptor: the same fd backs
+  // both stdout and stderr, and O_APPEND makes every write land at the end
+  // regardless of how the two ends share (or don't share) a file position.
+  await writeFile(ctx.logFile, '')
+  const logHandle = await open(ctx.logFile, 'a')
+
   const args = buildLaunchArgs(ctx)
-  // Never log args: they contain the access token.
-  return spawn(ctx.javaPath, args, {
-    cwd: ctx.gameDir,
-    detached: false,
-    stdio: ['ignore', 'pipe', 'pipe']
-  })
+  try {
+    // Never log args: they contain the access token.
+    const child = spawn(ctx.javaPath, args, {
+      cwd: ctx.gameDir,
+      // Detached so the game outlives the launcher: on Windows this spawns with
+      // DETACHED_PROCESS, which also keeps the child out of the console/process
+      // group that "End task" on the launcher tears down. No console window
+      // appears — we launch javaw.exe on Windows (see java.ts), and
+      // DETACHED_PROCESS allocates none in any case.
+      detached: true,
+      stdio: ['ignore', logHandle.fd, logHandle.fd]
+    })
+    // The child holds its own duplicate of the descriptor, so ours is done.
+    // unref so a running game never keeps the event loop (or a dev-mode Node
+    // process) alive on its own.
+    child.unref()
+    return child
+  } finally {
+    await logHandle.close()
+  }
 }

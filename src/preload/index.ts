@@ -19,6 +19,7 @@ import type {
   ModpackSettings,
   ProjectDetail,
   ProjectVersionInfo,
+  RunningGame,
   SearchQuery,
   SearchResponse,
   SplashTheme,
@@ -53,6 +54,7 @@ const api = {
       ipcRenderer.invoke(IpcChannel.ModpackSetIcon, id, clear),
     launch: (id: string): Promise<void> => ipcRenderer.invoke(IpcChannel.ModpackLaunch, id),
     stop: (id: string): Promise<void> => ipcRenderer.invoke(IpcChannel.ModpackStop, id),
+    running: (): Promise<RunningGame[]> => ipcRenderer.invoke(IpcChannel.ModpackRunning),
     openFolder: (id: string): Promise<void> => ipcRenderer.invoke(IpcChannel.ModpackOpenFolder, id),
     remove: (id: string): Promise<void> => ipcRenderer.invoke(IpcChannel.ModpackDelete, id),
     installModrinthPack: (projectId: string, versionId?: string): Promise<Modpack> =>
