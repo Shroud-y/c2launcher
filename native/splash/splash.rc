@@ -24,8 +24,8 @@ IDR_LOGO_PNG RCDATA "logo.png"
 1 RT_MANIFEST "splash.manifest"
 
 1 VERSIONINFO
-FILEVERSION 0,2,3,0
-PRODUCTVERSION 0,2,3,0
+FILEVERSION 0,2,4,0
+PRODUCTVERSION 0,2,4,0
 FILEFLAGSMASK 0x3fL
 FILEFLAGS 0x0L
 FILEOS VOS_NT_WINDOWS32
@@ -38,12 +38,12 @@ BEGIN
     BEGIN
       VALUE "CompanyName", "C\xB2 contributors"
       VALUE "FileDescription", "C\xB2 Launcher"
-      VALUE "FileVersion", "0.2.3.0"
+      VALUE "FileVersion", "0.2.4.0"
       VALUE "InternalName", "C2 Launcher"
       VALUE "LegalCopyright", "Copyright \xA9 2026 C\xB2 contributors"
       VALUE "OriginalFilename", "C\xB2 Launcher.exe"
       VALUE "ProductName", "C\xB2 Launcher"
-      VALUE "ProductVersion", "0.2.3.0"
+      VALUE "ProductVersion", "0.2.4.0"
     END+
   END
   BLOCK "VarFileInfo"
