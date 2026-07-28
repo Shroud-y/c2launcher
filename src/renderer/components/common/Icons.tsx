@@ -189,6 +189,24 @@ export function CloseIcon({ size = 18, className }: IconProps): JSX.Element {
   )
 }
 
+// Filled, unlike the outline set above: these sit inside solid action buttons
+// where a stroked glyph reads as hollow at small sizes.
+export function PlayIcon({ size = 18, className }: IconProps): JSX.Element {
+  return (
+    <svg {...svgProps(size, className)} fill="currentColor" stroke="none">
+      <path d="M8 5.5v13l11-6.5z" />
+    </svg>
+  )
+}
+
+export function StopIcon({ size = 18, className }: IconProps): JSX.Element {
+  return (
+    <svg {...svgProps(size, className)} fill="currentColor" stroke="none">
+      <rect x="6.5" y="6.5" width="11" height="11" rx="2" />
+    </svg>
+  )
+}
+
 export function MinimizeIcon({ size = 16, className }: IconProps): JSX.Element {
   return (
     <svg {...svgProps(size, className)}>

@@ -1,0 +1,210 @@
+.hero {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 24px;
+  border-radius: 18px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+/* The pack icon, scaled past the edges and blurred. Kept at low opacity and
+   layered under the content, which keeps using the theme's normal text colors —
+   painting on top of the image with hardcoded white would be unreadable in a
+   light custom theme. */
+.backdrop,
+.backdropFallback {
+  position: absolute;
+  inset: -20%;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.backdrop {
+  background-position: center;
+  background-size: cover;
+  filter: blur(48px) saturate(1.5);
+  opacity: 0.3;
+}
+
+.backdropFallback {
+  background: radial-gradient(
+    circle at 15% 50%,
+    var(--accent) 0%,
+    transparent 60%
+  );
+  opacity: 0.22;
+}
+
+.body {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+}
+
+.icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 96px;
+  height: 96px;
+  border-radius: var(--icon-radius);
+  color: var(--text-on-accent);
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.iconImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* A custom icon replaces the tinted glyph — drop the accent background so
+   transparent parts of the image don't show through as green. */
+.icon:has(.iconImage) {
+  background: var(--bg-hover);
+}
+
+.tintTeal {
+  background: var(--accent);
+}
+
+.tintMint {
+  background: var(--accent-mint);
+}
+
+.tintLight {
+  background: var(--accent-light);
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.name {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--accent);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--text-muted);
+  min-width: 0;
+}
+
+.meta > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dot {
+  opacity: 0.6;
+}
+
+.actions {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.playButton,
+.stopButton,
+.secondaryButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 116px;
+  padding: 12px 24px;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.playButton {
+  background: var(--accent);
+  color: var(--text-on-accent);
+}
+
+.playButton:hover:enabled {
+  background: var(--accent-soft);
+  transform: translateY(-1px);
+}
+
+.playButton:active:enabled {
+  transform: translateY(0);
+}
+
+.playButton:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.stopButton {
+  background: var(--danger-bg-strong);
+  border: 1px solid var(--danger-border);
+  color: var(--danger-strong);
+}
+
+.stopButton:hover {
+  background: var(--danger-bg);
+  transform: translateY(-1px);
+}
+
+.stopButton:active {
+  transform: translateY(0);
+}
+
+.secondaryButton {
+  min-width: 0;
+  background: var(--bg-hover);
+  color: var(--text-muted);
+}
+
+.secondaryButton:hover {
+  color: var(--accent);
+  transform: translateY(-1px);
+}
+
+.secondaryButton:active {
+  transform: translateY(0);
+}
+
+/* Narrow windows: the actions drop under the text instead of squeezing the
+   name to an ellipsis.
+   The breakpoint is on the viewport but the hero only gets what's left after
+   the sidebar (90) + right panel (200) + content padding (64) — so 1060px here
+   is roughly 700px of hero. Anything below ~1050 would be dead CSS: the window
+   itself has minWidth 960 (src/main/index.ts). */
+@media (max-width: 1060px) {
+  .hero {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .actions {
+    justify-content: flex-end;
+  }
+}

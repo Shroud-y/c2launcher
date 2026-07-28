@@ -1,29 +1,35 @@
 .page {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 20px;
 }
 
-.headingWrap {
-  display: flex;
-  justify-content: center;
-  margin-top: 16px;
-}
-
-.headingPill {
+.sectionHead {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 14px 36px;
-  border-radius: 16px;
-  background: var(--accent);
-  color: var(--text-on-accent);
-  font-size: 24px;
-  font-weight: 700;
+  gap: 10px;
+  margin-top: 4px;
 }
 
-.divider {
+.sectionTitle {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.count {
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: var(--bg-secondary);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+/* Fills the rest of the row, so the heading reads as a section rule rather
+   than the old full-width accent line under a centred pill. */
+.rule {
+  flex: 1;
   height: 1px;
-  background: var(--accent);
-  margin: 0 120px;
+  background: var(--border);
 }
