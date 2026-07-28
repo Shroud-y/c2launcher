@@ -116,17 +116,6 @@ export function GitHubIcon({ size = 22, className }: IconProps): JSX.Element {
   )
 }
 
-export function GridIcon({ size = 20, className }: IconProps): JSX.Element {
-  return (
-    <svg {...svgProps(size, className)}>
-      <rect x="4" y="4" width="6" height="6" rx="1" />
-      <rect x="14" y="4" width="6" height="6" rx="1" />
-      <rect x="4" y="14" width="6" height="6" rx="1" />
-      <rect x="14" y="14" width="6" height="6" rx="1" />
-    </svg>
-  )
-}
-
 export function SearchIcon({ size = 18, className }: IconProps): JSX.Element {
   return (
     <svg {...svgProps(size, className)}>
