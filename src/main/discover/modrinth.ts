@@ -14,6 +14,7 @@ import type {
   ProviderVersion,
   VersionFilter
 } from './provider'
+import { makeCache } from './cache'
 
 /**
  * Modrinth API v2 client. Public read API, no key required, but a
@@ -23,8 +24,6 @@ import type {
  */
 
 const BASE_URL = 'https://api.modrinth.com/v2'
-const CACHE_TTL_MS = 5 * 60 * 1000
-const CACHE_MAX_ENTRIES = 200
 
 function userAgent(): string {
   return `Shroud-y/c2-launcher/${app.getVersion()}`
@@ -42,33 +41,6 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
     throw new Error(`Modrinth request failed (${res.status} ${res.statusText})`)
   }
   return (await res.json()) as T
-}
-
-interface TtlCache<T> {
-  get(key: string): T | null
-  set(key: string, value: T): void
-}
-
-function makeCache<T>(): TtlCache<T> {
-  const entries = new Map<string, { expiresAt: number; value: T }>()
-  return {
-    get(key: string): T | null {
-      const entry = entries.get(key)
-      if (entry === undefined) return null
-      if (Date.now() > entry.expiresAt) {
-        entries.delete(key)
-        return null
-      }
-      return entry.value
-    },
-    set(key: string, value: T): void {
-      if (entries.size >= CACHE_MAX_ENTRIES) {
-        const oldest = entries.keys().next().value
-        if (oldest !== undefined) entries.delete(oldest)
-      }
-      entries.set(key, { expiresAt: Date.now() + CACHE_TTL_MS, value })
-    }
-  }
 }
 
 const searchCache = makeCache<SearchResponse>()
@@ -365,7 +337,8 @@ export async function getModpackContents(
   const packFile =
     versions.flatMap((v) => v.files).find((f) => f.filename.endsWith('.mrpack') && f.primary) ??
     versions.flatMap((v) => v.files).find((f) => f.filename.endsWith('.mrpack'))
-  if (packFile === undefined) return []
+  // Modrinth always serves a URL; the null check only narrows the shared type.
+  if (packFile === undefined || packFile.url === null) return []
 
   const res = await fetch(packFile.url, { headers: { 'User-Agent': userAgent() } })
   if (!res.ok) throw new Error(`Modpack download failed (${res.status})`)
@@ -450,6 +423,7 @@ export const modrinthProvider: ContentProvider = {
       name: raw.title,
       summary: raw.description,
       body: raw.body,
+      bodyFormat: 'markdown',
       iconUrl: raw.icon_url,
       downloads: raw.downloads,
       followers: raw.followers,
@@ -481,5 +455,9 @@ export const modrinthProvider: ContentProvider = {
       `${BASE_URL}/project/${encodeURIComponent(projectId)}/version${suffix}`
     )
     return raw.map(toProviderVersion)
+  },
+
+  getVersion(_projectId: string, versionId: string): Promise<ProviderVersion> {
+    return getModrinthVersion(versionId)
   }
 }

@@ -20,6 +20,7 @@ const SEARCH_PLACEHOLDERS: Record<ContentCategory, string> = {
 const TEXT_DEBOUNCE_MS = 400
 
 export default function Discover(): JSX.Element {
+  const source = useDiscoverStore((s) => s.source)
   const category = useDiscoverStore((s) => s.category)
   const text = useDiscoverStore((s) => s.text)
   const sort = useDiscoverStore((s) => s.sort)
@@ -67,6 +68,7 @@ export default function Discover(): JSX.Element {
     const timer = setTimeout(() => void search(), delay)
     return () => clearTimeout(timer)
   }, [
+    source,
     category,
     text,
     sort,

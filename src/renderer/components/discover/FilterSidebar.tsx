@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import CategoryIcon from './CategoryIcons'
 import { useDiscoverStore } from '../../store/discoverStore'
-import type { ContentCategory, ModLoader } from '@shared/types'
+import type { ContentCategory, DiscoverCategory, ModLoader } from '@shared/types'
 import styles from './FilterSidebar.module.css'
 
 interface CategoryTag {
@@ -79,7 +79,37 @@ const LOADERS: { label: string; value: ModLoader }[] = [
   { label: 'NeoForge', value: 'neoforge' }
 ]
 
+/**
+ * CurseForge category list for the current content type, fetched from the
+ * API (ids differ from Modrinth slugs). Null while loading; an empty list
+ * when offline or the request failed.
+ */
+function useCurseForgeCategories(
+  enabled: boolean,
+  category: ContentCategory
+): DiscoverCategory[] | null {
+  const [categories, setCategories] = useState<DiscoverCategory[] | null>(null)
+  useEffect(() => {
+    if (!enabled) return
+    let stale = false
+    setCategories(null)
+    window.api.discover
+      .curseforgeCategories(category)
+      .then((list) => {
+        if (!stale) setCategories(list)
+      })
+      .catch(() => {
+        if (!stale) setCategories([])
+      })
+    return () => {
+      stale = true
+    }
+  }, [enabled, category])
+  return enabled ? categories : null
+}
+
 export default function FilterSidebar(): JSX.Element {
+  const source = useDiscoverStore((s) => s.source)
   const category = useDiscoverStore((s) => s.category)
   const tags = useDiscoverStore((s) => s.tags)
   const gameVersion = useDiscoverStore((s) => s.gameVersion)
@@ -89,6 +119,7 @@ export default function FilterSidebar(): JSX.Element {
   const setLoader = useDiscoverStore((s) => s.setLoader)
 
   const [versions, setVersions] = useState<string[]>([])
+  const cfCategories = useCurseForgeCategories(source === 'curseforge', category)
 
   useEffect(() => {
     window.api.minecraft
@@ -104,7 +135,33 @@ export default function FilterSidebar(): JSX.Element {
       <section className={styles.categorySection}>
         <h3 className={styles.heading}>Category</h3>
         <ul className={styles.categoryList}>
-          {CATEGORIES[category].map((cat) => {
+          {source === 'curseforge' && cfCategories === null && (
+            <li className={styles.categoryNote}>Loading…</li>
+          )}
+          {source === 'curseforge' && cfCategories?.length === 0 && (
+            <li className={styles.categoryNote}>Categories unavailable</li>
+          )}
+          {source === 'curseforge' &&
+            cfCategories?.map((cat) => {
+              const active = tags.includes(cat.id)
+              return (
+                <li key={cat.id}>
+                  <button
+                    type="button"
+                    className={active ? styles.categoryItemActive : styles.categoryItem}
+                    onClick={() => toggleTag(cat.id)}
+                  >
+                    {cat.iconUrl !== null ? (
+                      <img className={styles.categoryImage} src={cat.iconUrl} alt="" loading="lazy" />
+                    ) : (
+                      <span className={styles.categoryImage} />
+                    )}
+                    <span>{cat.name}</span>
+                  </button>
+                </li>
+              )
+            })}
+          {source === 'modrinth' && CATEGORIES[category].map((cat) => {
             const active = tags.includes(cat.slug)
             return (
               <li key={cat.slug}>

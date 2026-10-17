@@ -1,5 +1,6 @@
 import Dropdown from '../common/Dropdown'
 import Pagination from './Pagination'
+import SourceToggle from './SourceToggle'
 import { useDiscoverStore } from '../../store/discoverStore'
 import type { SearchQuery } from '@shared/types'
 import styles from './SortFilter.module.css'
@@ -21,6 +22,8 @@ export default function SortFilter(): JSX.Element {
 
   return (
     <div className={styles.row}>
+      <SourceToggle />
+
       <Dropdown
         pill
         ariaLabel="Sort by"

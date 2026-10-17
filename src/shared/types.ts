@@ -235,6 +235,7 @@ export type ContentCategory =
 export type InstallableCategory = Exclude<ContentCategory, 'modpacks'>
 
 export interface SearchQuery {
+  source: ContentSource
   category: ContentCategory
   text: string
   sort: 'relevance' | 'downloads' | 'newest' | 'updated'
@@ -242,9 +243,18 @@ export interface SearchQuery {
   pageSize: number
   gameVersion?: string
   loader?: ModLoader
+  /** Modrinth category slugs, or CurseForge category ids (as strings). */
   tags?: string[]
-  /** Environment filter: server-side or client-side supporting content. */
+  /** Environment filter: server-side or client-side supporting content. Modrinth only. */
   environment?: 'server' | 'client'
+}
+
+/** A CurseForge search category (Modrinth's are hardcoded in the renderer). */
+export interface DiscoverCategory {
+  /** Category id as a string — sent back as a SearchQuery tag. */
+  id: string
+  name: string
+  iconUrl: string | null
 }
 
 export interface SearchResult {
@@ -269,8 +279,10 @@ export interface ProjectDetail {
   source: ContentSource
   name: string
   summary: string
-  /** Long description; markdown source, rendered as sanitized HTML. */
+  /** Long description, rendered as sanitized HTML. */
   body: string
+  /** Modrinth bodies are markdown; CurseForge descriptions are already HTML. */
+  bodyFormat: 'markdown' | 'html'
   iconUrl: string | null
   downloads: number
   followers: number

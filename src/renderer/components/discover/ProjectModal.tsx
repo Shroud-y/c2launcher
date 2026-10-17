@@ -2,7 +2,13 @@ import { useEffect, useMemo, useState } from 'react'
 import DOMPurify from 'dompurify'
 import { marked } from 'marked'
 import { CloseIcon, WindIcon } from '../common/Icons'
-import InstallAction, { installTargets, PICKER_TITLES, pickerEmptyMessage } from './InstallAction'
+import InstallAction, {
+  CF_MODPACK_UNSUPPORTED,
+  installTargets,
+  isUnsupportedPack,
+  PICKER_TITLES,
+  pickerEmptyMessage
+} from './InstallAction'
 import InstancePicker from './InstancePicker'
 import Dropdown from '../common/Dropdown'
 import { useCloseAnimation } from '../../hooks/useCloseAnimation'
@@ -23,15 +29,22 @@ import styles from './ProjectModal.module.css'
 type ModalTab = 'description' | 'gallery' | 'versions' | 'contents'
 
 // External links only — the main process opens them in the system browser.
+// Anything but http(s) (relative paths would resolve to file:// in the
+// packaged app) loses its href rather than reaching shell.openExternal.
 DOMPurify.addHook('afterSanitizeAttributes', (node) => {
   if (node.tagName === 'A') {
+    const href = node.getAttribute('href') ?? ''
+    if (!/^https?:\/\//i.test(href)) node.removeAttribute('href')
     node.setAttribute('target', '_blank')
     node.setAttribute('rel', 'noopener noreferrer')
   }
 })
 
-function renderBody(markdown: string): string {
-  const html = marked.parse(markdown, { async: false })
+function renderBody(detail: ProjectDetail): string {
+  // CurseForge descriptions are HTML already — running them through marked
+  // would turn indented markup into code blocks.
+  const html =
+    detail.bodyFormat === 'html' ? detail.body : marked.parse(detail.body, { async: false })
   return DOMPurify.sanitize(html, { USE_PROFILES: { html: true } })
 }
 
@@ -81,8 +94,9 @@ export default function ProjectModal({ result }: ProjectModalProps): JSX.Element
   const targetPack =
     installTarget === null ? null : modpacks.find((m) => m.id === installTarget) ?? null
   /** This project's file already in the locked target instance, if any. */
+  // installedInTarget is keyed by Modrinth project ids only.
   const installedEntry = useDiscoverStore((s) =>
-    s.installTarget !== null && category !== 'modpacks'
+    s.installTarget !== null && category !== 'modpacks' && result.source === 'modrinth'
       ? s.installedInTarget[result.id] ?? null
       : null
   )
@@ -105,15 +119,15 @@ export default function ProjectModal({ result }: ProjectModalProps): JSX.Element
 
   useEffect(() => {
     window.api.discover
-      .project(result.id)
+      .project(result.source, result.id)
       .then(setDetail)
       .catch(() => setError('Could not load project details'))
-  }, [result.id])
+  }, [result.source, result.id])
 
   useEffect(() => {
     if (tab !== 'versions' || versions !== null) return
     window.api.discover
-      .projectVersions(result.id)
+      .projectVersions(result.source, result.id)
       .then((vs) =>
         // API order is not guaranteed — always newest first.
         setVersions(
@@ -121,7 +135,7 @@ export default function ProjectModal({ result }: ProjectModalProps): JSX.Element
         )
       )
       .catch(() => setError('Could not load versions'))
-  }, [tab, versions, result.id])
+  }, [tab, versions, result.source, result.id])
 
   // Modpacks only: load the bundled content list the first time the tab opens.
   useEffect(() => {
@@ -133,7 +147,7 @@ export default function ProjectModal({ result }: ProjectModalProps): JSX.Element
   }, [tab, contents, result.id])
 
   const bodyHtml = useMemo(
-    () => (detail === null ? '' : renderBody(detail.body)),
+    () => (detail === null ? '' : renderBody(detail)),
     [detail]
   )
 
@@ -180,6 +194,7 @@ export default function ProjectModal({ result }: ProjectModalProps): JSX.Element
       // removed after the new one downloads.
       setInstallingVersionId(versionId)
       void installContent(
+        result.source,
         result.id,
         installTarget,
         versionId,
@@ -195,21 +210,24 @@ export default function ProjectModal({ result }: ProjectModalProps): JSX.Element
     setPickingVersionId(null)
     if (versionId === null) return
     setInstallingVersionId(versionId)
-    void installContent(result.id, modpackId, versionId).finally(() =>
+    void installContent(result.source, result.id, modpackId, versionId).finally(() =>
       setInstallingVersionId(null)
     )
   }
 
   const gallery = detail?.gallery ?? []
   // Gallery tab only appears once the project loaded with images; the Mods
-  // (contents) tab only makes sense for modpacks.
+  // (contents) tab only makes sense for modpacks, and is read from the
+  // .mrpack — Modrinth only for now.
   const tabs = useMemo<ModalTab[]>(() => {
     const list: ModalTab[] = ['description']
     if (gallery.length > 0) list.push('gallery')
-    if (category === 'modpacks') list.push('contents')
+    if (category === 'modpacks' && result.source === 'modrinth') list.push('contents')
     list.push('versions')
     return list
-  }, [gallery.length, category])
+  }, [gallery.length, category, result.source])
+
+  const unsupportedPack = isUnsupportedPack(result, category)
 
   const downloads = detail?.downloads ?? result.downloads
   const followers = detail?.followers
@@ -389,10 +407,18 @@ export default function ProjectModal({ result }: ProjectModalProps): JSX.Element
                             type="button"
                             className={styles.downloadButton}
                             disabled={
-                              installingVersionId !== null || installing || incompatible || isCurrent
+                              installingVersionId !== null ||
+                              installing ||
+                              incompatible ||
+                              isCurrent ||
+                              unsupportedPack
                             }
                             title={
-                              incompatible ? `Not compatible with ${targetPack.name}` : undefined
+                              unsupportedPack
+                                ? CF_MODPACK_UNSUPPORTED
+                                : incompatible
+                                  ? `Not compatible with ${targetPack.name}`
+                                  : undefined
                             }
                             onClick={() => onVersionInstallClick(v.id)}
                           >

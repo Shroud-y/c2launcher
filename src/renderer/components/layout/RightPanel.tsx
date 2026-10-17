@@ -48,15 +48,21 @@ function AccountSection(): JSX.Element {
 // block and the FilterSidebar separator. No "All" option — deactivating the
 // active side (clicking it again) clears the filter. Absolutely positioned so
 // it never shifts the account, sidebar, or GitHub button.
+// CurseForge has no side facet: the buttons stay (layout is fixed) but are
+// disabled, and the store doesn't send the filter for that source.
 function EnvFilter(): JSX.Element {
   const environment = useDiscoverStore((s) => s.environment)
   const setEnvironment = useDiscoverStore((s) => s.setEnvironment)
+  const unsupported = useDiscoverStore((s) => s.source === 'curseforge')
+  const title = unsupported ? 'Not available on CurseForge' : undefined
 
   return (
     <div className={styles.envFilter}>
       <button
         type="button"
-        className={environment === 'server' ? styles.envButtonActive : styles.envButton}
+        className={environment === 'server' && !unsupported ? styles.envButtonActive : styles.envButton}
+        disabled={unsupported}
+        title={title}
         onClick={() => setEnvironment(environment === 'server' ? null : 'server')}
       >
         <MonitorIcon size={14} className={styles.envIcon} />
@@ -64,7 +70,9 @@ function EnvFilter(): JSX.Element {
       </button>
       <button
         type="button"
-        className={environment === 'client' ? styles.envButtonActive : styles.envButton}
+        className={environment === 'client' && !unsupported ? styles.envButtonActive : styles.envButton}
+        disabled={unsupported}
+        title={title}
         onClick={() => setEnvironment(environment === 'client' ? null : 'client')}
       >
         <CompassIcon size={14} className={styles.envIcon} />

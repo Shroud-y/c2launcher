@@ -1,0 +1,37 @@
+/* Same footprint as the toolbar's pill dropdowns. */
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 40px;
+  padding: 4px;
+  border-radius: 8px;
+  background: var(--bg-secondary);
+}
+
+.option,
+.optionActive {
+  height: 100%;
+  padding: 0 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.option:hover:enabled {
+  background: var(--bg-hover);
+}
+
+.option:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.optionActive {
+  color: var(--accent);
+  background: var(--bg-hover);
+}

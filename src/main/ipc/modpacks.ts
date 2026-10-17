@@ -33,7 +33,7 @@ import { exportModpack } from '../modpacks/export'
 import {
   checkContentUpdates,
   importContentFiles,
-  installContentFromModrinth,
+  installContent,
   listContent,
   removeContentFile,
   setContentEnabled
@@ -644,7 +644,7 @@ export function registerModpackIpc(): void {
   ipcMain.handle(
     IpcChannel.ModpackInstallMod,
     (_e, params: InstallContentParams): Promise<InstalledContent> =>
-      installContentFromModrinth(params)
+      installContent(params)
   )
 
   // Accepted file extensions per category for the "Choose files" dialog.

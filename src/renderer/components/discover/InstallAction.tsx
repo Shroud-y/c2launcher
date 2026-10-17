@@ -44,6 +44,13 @@ export function installTargets(
   })
 }
 
+/** CurseForge modpack installs (manifest.json + file resolution) aren't wired yet. */
+export const CF_MODPACK_UNSUPPORTED = "CurseForge modpack installs aren't supported yet"
+
+export function isUnsupportedPack(result: SearchResult, category: string): boolean {
+  return result.source === 'curseforge' && category === 'modpacks'
+}
+
 export function pickerEmptyMessage(category: InstallableCategory): string {
   return category === 'mods'
     ? 'No compatible instance — needs a matching loader and game version.'
@@ -60,14 +67,20 @@ export default function InstallAction({ result }: InstallActionProps): JSX.Eleme
   // Content locks to "Installed" only in the + button flow, where a single
   // target instance is fixed and already has this project. Modpacks never
   // lock — each install spawns a fresh instance, so re-installing is valid.
+  // installedInTarget is keyed by Modrinth project ids only.
   const installedInTarget = useDiscoverStore(
-    (s) => s.installTarget !== null && s.installedInTarget[result.id] !== undefined
+    (s) =>
+      result.source === 'modrinth' &&
+      s.installTarget !== null &&
+      s.installedInTarget[result.id] !== undefined
   )
   const installed = installedInTarget && category !== 'modpacks'
   const installPack = useDiscoverStore((s) => s.installPack)
   const installContent = useDiscoverStore((s) => s.installContent)
   const installTarget = useDiscoverStore((s) => s.installTarget)
   const modpacks = useModpackStore((s) => s.modpacks)
+
+  const unsupported = isUnsupportedPack(result, category)
 
   const [pickingTarget, setPickingTarget] = useState(false)
   const [loadingCompat, setLoadingCompat] = useState(false)
@@ -82,7 +95,7 @@ export default function InstallAction({ result }: InstallActionProps): JSX.Eleme
     try {
       // Project detail lists supported loaders/game versions — used to
       // hide unsuitable instances. Cached main-side, so this is cheap.
-      const detail = await window.api.discover.project(result.id)
+      const detail = await window.api.discover.project(result.source, result.id)
       setCompat({ gameVersions: detail.gameVersions, loaders: detail.loaders })
     } catch {
       setCompat(null) // Offline — show all candidate instances.
@@ -97,7 +110,7 @@ export default function InstallAction({ result }: InstallActionProps): JSX.Eleme
       void installPack(result.id)
     } else if (installTarget !== null) {
       // Locked to one instance (+ button flow) — install there directly.
-      void installContent(result.id, installTarget)
+      void installContent(result.source, result.id, installTarget)
     } else {
       void openPicker()
     }
@@ -105,7 +118,7 @@ export default function InstallAction({ result }: InstallActionProps): JSX.Eleme
 
   function onTargetPicked(modpackId: string): void {
     setPickingTarget(false)
-    void installContent(result.id, modpackId)
+    void installContent(result.source, result.id, modpackId)
   }
 
   return (
@@ -113,7 +126,8 @@ export default function InstallAction({ result }: InstallActionProps): JSX.Eleme
       <button
         type="button"
         className={installed ? styles.installedButton : styles.installButton}
-        disabled={installing || installed || loadingCompat}
+        disabled={installing || installed || loadingCompat || unsupported}
+        title={unsupported ? CF_MODPACK_UNSUPPORTED : undefined}
         onClick={(e) => {
           e.stopPropagation()
           onInstallClick()

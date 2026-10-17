@@ -2,10 +2,13 @@ import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
 import { IpcChannel } from '@shared/ipc-channels'
 import type {
   AppSettings,
+  ContentCategory,
+  ContentSource,
   ContentUpdate,
   CreateModpackParams,
   DataMigrateProgress,
   DataMigrateResult,
+  DiscoverCategory,
   GameLogLine,
   GameState,
   InstallableCategory,
@@ -102,12 +105,17 @@ const api = {
   discover: {
     search: (query: SearchQuery): Promise<SearchResponse> =>
       ipcRenderer.invoke(IpcChannel.DiscoverSearch, query),
-    project: (projectId: string): Promise<ProjectDetail> =>
-      ipcRenderer.invoke(IpcChannel.DiscoverProject, projectId),
-    projectVersions: (projectId: string): Promise<ProjectVersionInfo[]> =>
-      ipcRenderer.invoke(IpcChannel.DiscoverProjectVersions, projectId),
+    project: (source: ContentSource, projectId: string): Promise<ProjectDetail> =>
+      ipcRenderer.invoke(IpcChannel.DiscoverProject, source, projectId),
+    projectVersions: (source: ContentSource, projectId: string): Promise<ProjectVersionInfo[]> =>
+      ipcRenderer.invoke(IpcChannel.DiscoverProjectVersions, source, projectId),
+    /** Modrinth modpacks only. */
     modpackContents: (projectId: string, versionId?: string): Promise<ModpackContentEntry[]> =>
-      ipcRenderer.invoke(IpcChannel.DiscoverModpackContents, projectId, versionId)
+      ipcRenderer.invoke(IpcChannel.DiscoverModpackContents, projectId, versionId),
+    curseforgeAvailable: (): Promise<boolean> =>
+      ipcRenderer.invoke(IpcChannel.DiscoverCurseforgeAvailable),
+    curseforgeCategories: (category: ContentCategory): Promise<DiscoverCategory[]> =>
+      ipcRenderer.invoke(IpcChannel.DiscoverCurseforgeCategories, category)
   },
   settings: {
     get: (): Promise<AppSettings> => ipcRenderer.invoke(IpcChannel.SettingsGet),

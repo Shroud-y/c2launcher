@@ -47,6 +47,8 @@ export enum IpcChannel {
   DiscoverProject = 'discover:project',
   DiscoverProjectVersions = 'discover:project-versions',
   DiscoverModpackContents = 'discover:modpack-contents',
+  DiscoverCurseforgeAvailable = 'discover:curseforge-available',
+  DiscoverCurseforgeCategories = 'discover:curseforge-categories',
   WindowMinimize = 'window:minimize',
   WindowMaximize = 'window:maximize',
   WindowClose = 'window:close',

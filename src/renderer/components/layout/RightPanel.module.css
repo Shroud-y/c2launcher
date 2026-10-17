@@ -134,9 +134,14 @@
   transition: background 0.15s, color 0.15s, transform 0.15s;
 }
 
-.envButton:hover {
+.envButton:hover:enabled {
   background: var(--bg-hover);
   transform: translateY(-1px);
+}
+
+.envButton:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
 
 .envButton:active {

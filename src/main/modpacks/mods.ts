@@ -4,12 +4,11 @@ import { copyFile, mkdir, readdir, rename, rm, stat } from 'fs/promises'
 import { basename, join } from 'path'
 import {
   getLatestVersionsByHashes,
-  getModrinthVersion,
   getProjectsByIds,
-  getVersionsByHashes,
-  modrinthProvider
+  getVersionsByHashes
 } from '../discover/modrinth'
-import type { VersionFilter } from '../discover/provider'
+import type { ProviderVersionFile, VersionFilter } from '../discover/provider'
+import { providerFor } from '../discover/providers'
 import { downloadFile } from '../minecraft/install'
 import { getModpack, instanceDirFor } from './store'
 import type {
@@ -225,6 +224,18 @@ export async function removeContentFile(
   await rm(join(contentDir(modpackId, category), fileName), { force: true })
 }
 
+/**
+ * A file's direct URL, or an error pointing at its download page when the
+ * author disallows third-party downloads (CurseForge only).
+ */
+function downloadUrlOf(file: ProviderVersionFile): string {
+  if (file.url !== null) return file.url
+  const where = file.manualUrl !== undefined ? `: ${file.manualUrl}` : ' from CurseForge'
+  throw new Error(
+    `The author of ${file.filename} doesn't allow launcher downloads — download it manually${where}`
+  )
+}
+
 function versionFilterFor(category: InstallableCategory, pack: Modpack): VersionFilter {
   const gameVersions = pack.gameVersion !== null ? [pack.gameVersion] : undefined
   if (category === 'mods') {
@@ -281,12 +292,13 @@ export async function checkContentUpdates(
   return updates
 }
 
-export async function installContentFromModrinth(
-  params: InstallContentParams
-): Promise<InstalledContent> {
-  if (params.source !== 'modrinth') {
-    throw new Error('CurseForge installs arrive in a later phase')
-  }
+/**
+ * Downloads one content file from the requested source (Modrinth or
+ * CurseForge) into the instance. Without an explicit version the newest
+ * one compatible with the pack's game version (and loader, for mods) wins.
+ */
+export async function installContent(params: InstallContentParams): Promise<InstalledContent> {
+  const provider = providerFor(params.source)
   const pack = getModpack(params.modpackId)
   if (pack === null) throw new Error('Modpack not found')
   if (params.category === 'mods' && (pack.loader === null || pack.loader === 'vanilla')) {
@@ -301,13 +313,13 @@ export async function installContentFromModrinth(
   let versions
   if (params.versionId !== undefined) {
     // User picked an exact version — trust the choice, skip compatibility filters.
-    const version = await getModrinthVersion(params.versionId)
+    const version = await provider.getVersion(params.projectId, params.versionId)
     if (version.projectId !== params.projectId) {
       throw new Error('Version does not belong to this project')
     }
     versions = [version]
   } else {
-    versions = await modrinthProvider.getProjectVersions(
+    versions = await provider.getProjectVersions(
       params.projectId,
       versionFilterFor(params.category, pack)
     )
@@ -324,7 +336,7 @@ export async function installContentFromModrinth(
 
   assertSafeFileName(file.filename, params.category)
   await downloadFile(
-    file.url,
+    downloadUrlOf(file),
     join(instanceDirFor(pack), target.dir, file.filename),
     file.sha1 ?? undefined
   )

@@ -100,7 +100,8 @@ export async function installModrinthPack(
     .flatMap((v) => v.files)
     .find((f) => f.filename.endsWith('.mrpack') && f.primary)
     ?? versions.flatMap((v) => v.files).find((f) => f.filename.endsWith('.mrpack'))
-  if (packFile === undefined) {
+  // Modrinth always serves a URL; the null check only narrows the shared type.
+  if (packFile === undefined || packFile.url === null) {
     throw new Error('This project has no installable modpack file')
   }
 

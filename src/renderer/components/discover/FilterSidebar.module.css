@@ -72,6 +72,21 @@
   flex-shrink: 0;
 }
 
+/* CurseForge category icons are remote images, sized like the glyphs. */
+.categoryImage {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  border-radius: 3px;
+  object-fit: cover;
+}
+
+.categoryNote {
+  padding: 6px 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
 /* Game version + Loader as two side-by-side scrollable lists, fixed to the
    lower portion between the panel's separators. */
 .selectSection {
