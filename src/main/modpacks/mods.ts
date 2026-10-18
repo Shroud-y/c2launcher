@@ -3,15 +3,23 @@ import { createReadStream } from 'fs'
 import { copyFile, mkdir, readdir, rename, rm, stat } from 'fs/promises'
 import { basename, join } from 'path'
 import {
+  getCurseForgeSummaries,
+  getFilesByFingerprints,
+  getLatestCurseForgeVersion,
+  isCurseForgeConfigured
+} from '../discover/curseforge'
+import {
   getLatestVersionsByHashes,
   getProjectsByIds,
   getVersionsByHashes
 } from '../discover/modrinth'
+import { cfFingerprintOfFile } from '../discover/murmur2'
 import type { VersionFilter } from '../discover/provider'
 import { providerFor } from '../discover/providers'
 import { downloadFile } from '../minecraft/install'
 import { getModpack, instanceDirFor } from './store'
 import type {
+  ContentRef,
   ContentUpdate,
   InstallableCategory,
   InstallContentParams,
@@ -25,7 +33,7 @@ import type {
  * shaderpacks, datapacks). Disabling renames the file to
  * <name>.<ext>.disabled so the game skips it; no registry is kept —
  * the folder is the source of truth. Names, versions and icons are
- * resolved from Modrinth by file hash when online.
+ * resolved from Modrinth (sha1) and CurseForge (fingerprint) when online.
  */
 
 const DISABLED_SUFFIX = '.disabled'
@@ -69,7 +77,9 @@ function toInstalledContent(fileName: string): InstalledContent {
     enabled,
     versionNumber: null,
     iconUrl: null,
-    projectId: null
+    projectId: null,
+    source: null,
+    sources: {}
   }
 }
 
@@ -102,35 +112,94 @@ export async function sha1OfFileCached(path: string): Promise<string> {
   return hash
 }
 
-/**
- * Fills name/version/icon from Modrinth by file hash. Best-effort:
- * any failure (offline, rate limit) leaves the plain file names.
- */
-async function enrichFromModrinth(
-  dir: string,
-  items: InstalledContent[]
-): Promise<InstalledContent[]> {
-  try {
-    const hashes = await Promise.all(items.map((i) => sha1OfFileCached(join(dir, i.fileName))))
-    const versionByHash = await getVersionsByHashes(hashes)
-    const projectIds = [...new Set([...versionByHash.values()].map((m) => m.projectId))]
-    const projects = await getProjectsByIds(projectIds)
+/** CurseForge fingerprint by path, memoized on size+mtime like the sha1 above. */
+const fingerprintCache = new Map<string, { signature: string; fingerprint: number }>()
 
-    return items.map((item, index) => {
-      const match = versionByHash.get(hashes[index])
-      if (match === undefined) return item
-      const project = projects.get(match.projectId)
-      return {
-        ...item,
-        name: project?.title ?? item.name,
-        versionNumber: match.versionNumber,
-        iconUrl: project?.iconUrl ?? null,
-        projectId: match.projectId
-      }
-    })
-  } catch {
-    return items
-  }
+async function cfFingerprintOfFileCached(path: string): Promise<number> {
+  const { size, mtimeMs } = await stat(path)
+  const signature = `${size}:${mtimeMs}`
+  const cached = fingerprintCache.get(path)
+  if (cached !== undefined && cached.signature === signature) return cached.fingerprint
+  const fingerprint = await cfFingerprintOfFile(path)
+  fingerprintCache.set(path, { signature, fingerprint })
+  return fingerprint
+}
+
+interface SourceLookup {
+  ref: ContentRef
+  title: string | null
+  iconUrl: string | null
+}
+
+/** Modrinth metadata per file, by sha1. Throws on network failure. */
+async function lookupModrinth(paths: string[]): Promise<(SourceLookup | null)[]> {
+  const hashes = await Promise.all(paths.map(sha1OfFileCached))
+  const versionByHash = await getVersionsByHashes(hashes)
+  const projects = await getProjectsByIds([
+    ...new Set([...versionByHash.values()].map((m) => m.projectId))
+  ])
+  return hashes.map((hash) => {
+    const match = versionByHash.get(hash)
+    if (match === undefined) return null
+    const project = projects.get(match.projectId)
+    return {
+      ref: { projectId: match.projectId, versionId: match.versionId, versionNumber: match.versionNumber },
+      title: project?.title ?? null,
+      iconUrl: project?.iconUrl ?? null
+    }
+  })
+}
+
+/** CurseForge metadata per file, by fingerprint. Throws on network failure. */
+async function lookupCurseForge(paths: string[]): Promise<(SourceLookup | null)[]> {
+  if (!isCurseForgeConfigured()) return paths.map(() => null)
+  const fingerprints = await Promise.all(paths.map(cfFingerprintOfFileCached))
+  const byFingerprint = await getFilesByFingerprints(fingerprints)
+  const projects = await getCurseForgeSummaries([...byFingerprint.values()].map((m) => m.modId))
+  return fingerprints.map((fp) => {
+    const match = byFingerprint.get(fp)
+    if (match === undefined) return null
+    const project = projects.get(match.modId)
+    return {
+      ref: { projectId: match.modId, versionId: match.fileId, versionNumber: match.versionNumber },
+      title: project?.title ?? null,
+      iconUrl: project?.iconUrl ?? null
+    }
+  })
+}
+
+/**
+ * Fills name/version/icon by asking Modrinth (sha1) and CurseForge
+ * (fingerprint) in parallel. Display fields prefer Modrinth; `sources`
+ * keeps every match so Discover can mark either listing as installed.
+ * Best-effort per source: a failure (offline, rate limit, no API key)
+ * just leaves that source out.
+ */
+async function enrichContent(dir: string, items: InstalledContent[]): Promise<InstalledContent[]> {
+  const paths = items.map((i) => join(dir, i.fileName))
+  const [modrinth, curseforge] = await Promise.all([
+    lookupModrinth(paths).catch(() => paths.map(() => null)),
+    lookupCurseForge(paths).catch(() => paths.map(() => null))
+  ])
+
+  return items.map((item, index) => {
+    const sources: InstalledContent['sources'] = {}
+    const mr = modrinth[index]
+    const cf = curseforge[index]
+    if (mr !== null) sources.modrinth = mr.ref
+    if (cf !== null) sources.curseforge = cf.ref
+    const primary = mr ?? cf
+    if (primary === null) return item
+    return {
+      ...item,
+      name: primary.title ?? item.name,
+      versionNumber: primary.ref.versionNumber,
+      iconUrl: primary.iconUrl,
+      projectId: primary.ref.projectId,
+      source: mr !== null ? 'modrinth' : 'curseforge',
+      sources
+    }
+  })
 }
 
 export async function listContent(
@@ -148,7 +217,7 @@ export async function listContent(
     .filter((f) => matchesCategory(f, category))
     .map(toInstalledContent)
     .sort((a, b) => a.name.localeCompare(b.name))
-  return enrichFromModrinth(dir, items)
+  return enrichContent(dir, items)
 }
 
 export async function setContentEnabled(
@@ -263,8 +332,9 @@ export async function checkContentUpdates(
   const files = entries.filter((f) => matchesCategory(f, category))
   if (files.length === 0) return []
 
+  const filter = versionFilterFor(category, pack)
   const hashes = await Promise.all(files.map((f) => sha1OfFileCached(join(dir, f))))
-  const latest = await getLatestVersionsByHashes(hashes, versionFilterFor(category, pack))
+  const latest = await getLatestVersionsByHashes(hashes, filter)
 
   const updates: ContentUpdate[] = []
   files.forEach((fileName, index) => {
@@ -273,11 +343,64 @@ export async function checkContentUpdates(
     if (version.files.some((f) => f.sha1 === hashes[index])) return // Already current.
     updates.push({
       fileName,
+      source: 'modrinth',
       projectId: version.projectId,
       versionId: version.id,
       versionNumber: version.versionNumber
     })
   })
+
+  // CurseForge covers the files Modrinth doesn't know at all — not ones it
+  // knows but has nothing newer for, or both would suggest an update.
+  const known = await getVersionsByHashes(hashes).catch(() => null)
+  if (known !== null) {
+    const unknown = files.filter((_f, index) => !known.has(hashes[index]))
+    updates.push(...(await checkCurseForgeUpdates(dir, unknown, filter).catch(() => [])))
+  }
+  return updates
+}
+
+const CF_UPDATE_CONCURRENCY = 5
+
+/**
+ * Newer compatible CurseForge files for local files identified by
+ * fingerprint. CurseForge has no batch "latest for filter" endpoint, so
+ * each project's filtered file list is fetched (cached, a few at a time).
+ * Only strictly newer files count — the newest compatible file can be an
+ * older upload than what the user deliberately picked.
+ */
+async function checkCurseForgeUpdates(
+  dir: string,
+  files: string[],
+  filter: VersionFilter
+): Promise<ContentUpdate[]> {
+  if (!isCurseForgeConfigured() || files.length === 0) return []
+  const fingerprints = await Promise.all(files.map((f) => cfFingerprintOfFileCached(join(dir, f))))
+  const matches = await getFilesByFingerprints(fingerprints)
+  const candidates = files.flatMap((fileName, index) => {
+    const match = matches.get(fingerprints[index])
+    return match !== undefined ? [{ fileName, match }] : []
+  })
+
+  const updates: ContentUpdate[] = []
+  for (let i = 0; i < candidates.length; i += CF_UPDATE_CONCURRENCY) {
+    const batch = await Promise.all(
+      candidates.slice(i, i + CF_UPDATE_CONCURRENCY).map(async ({ fileName, match }) => {
+        const newest = await getLatestCurseForgeVersion(match.modId, filter).catch(() => null)
+        if (newest === null || newest.id === match.fileId) return null
+        if (Date.parse(newest.datePublished) <= Date.parse(match.fileDate)) return null
+        const update: ContentUpdate = {
+          fileName,
+          source: 'curseforge',
+          projectId: match.modId,
+          versionId: newest.id,
+          versionNumber: newest.versionNumber
+        }
+        return update
+      })
+    )
+    for (const u of batch) if (u !== null) updates.push(u)
+  }
   return updates
 }
 

@@ -8,7 +8,7 @@ import Dropdown from '../common/Dropdown'
 import { useCloseAnimation } from '../../hooks/useCloseAnimation'
 import { useBackdropDismiss } from '../../hooks/useBackdropDismiss'
 import { formatDownloads } from './SearchResultCard'
-import { useDiscoverStore } from '../../store/discoverStore'
+import { installedKey, useDiscoverStore } from '../../store/discoverStore'
 import { useModalStore } from '../../store/modalStore'
 import { useModpackStore } from '../../store/modpackStore'
 import type {
@@ -88,12 +88,13 @@ export default function ProjectModal({ result }: ProjectModalProps): JSX.Element
   const targetPack =
     installTarget === null ? null : modpacks.find((m) => m.id === installTarget) ?? null
   /** This project's file already in the locked target instance, if any. */
-  // installedInTarget is keyed by Modrinth project ids only.
   const installedEntry = useDiscoverStore((s) =>
-    s.installTarget !== null && category !== 'modpacks' && result.source === 'modrinth'
-      ? s.installedInTarget[result.id] ?? null
+    s.installTarget !== null && category !== 'modpacks'
+      ? s.installedInTarget[installedKey(result.source, result.id)] ?? null
       : null
   )
+  /** Exact version on disk in this listing's source, when the file was recognized. */
+  const installedVersionId = installedEntry?.sources[result.source]?.versionId ?? null
 
   const [tab, setTab] = useState<ModalTab>('description')
   const [detail, setDetail] = useState<ProjectDetail | null>(null)
@@ -369,12 +370,9 @@ export default function ProjectModal({ result }: ProjectModalProps): JSX.Element
                 ) : (
                   <ul className={styles.versionList}>
                     {visibleVersions.map((v) => {
-                      // Version on disk in the locked target — versionNumber
-                      // is resolved by file hash, so a null means unknown.
-                      const isCurrent =
-                        installedEntry !== null &&
-                        installedEntry.versionNumber !== null &&
-                        v.versionNumber === installedEntry.versionNumber
+                      // Version on disk in the locked target, resolved by file
+                      // hash/fingerprint for this listing's source.
+                      const isCurrent = installedVersionId !== null && v.id === installedVersionId
                       const incompatible =
                         category !== 'modpacks' &&
                         targetPack !== null &&

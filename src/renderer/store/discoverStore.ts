@@ -19,6 +19,11 @@ let searchGeneration = 0
 
 const SOURCE_STORAGE_KEY = 'c2.discoverSource'
 
+/** installedInTarget key: project ids are only unique within a source. */
+export function installedKey(source: ContentSource, projectId: string): string {
+  return `${source}:${projectId}`
+}
+
 /** Last picked content source; Modrinth when unset or storage is unavailable. */
 function loadSource(): ContentSource {
   try {
@@ -75,11 +80,10 @@ interface DiscoverState {
   /** projectId → last install error. */
   installErrors: Record<string, string>
   /**
-   * projectId → content already present in the locked install target
-   * (current category only). Empty outside the + button flow or when
-   * Modrinth hash resolution is unavailable (offline). Keys are Modrinth
-   * project ids — CurseForge results never match until fingerprint lookup
-   * lands.
+   * installedKey(source, projectId) → content already present in the
+   * locked install target (current category only). A file recognized by
+   * both Modrinth and CurseForge is listed under both keys. Empty outside
+   * the + button flow or when hash lookups are unavailable (offline).
    */
   installedInTarget: Record<string, InstalledContent>
 
@@ -239,7 +243,9 @@ export const useDiscoverStore = create<DiscoverState>((set, get) => ({
       const items = await window.api.modpack.content(installTarget, category)
       const map: Record<string, InstalledContent> = {}
       for (const item of items) {
-        if (item.projectId !== null) map[item.projectId] = item
+        for (const [source, ref] of Object.entries(item.sources) as [ContentSource, { projectId: string }][]) {
+          map[installedKey(source, ref.projectId)] = item
+        }
       }
       // Target or tab may have changed while listing — drop stale results.
       if (get().installTarget !== installTarget || get().category !== category) return
@@ -308,15 +314,11 @@ export const useDiscoverStore = create<DiscoverState>((set, get) => ({
         useModalStore.getState().openManualDownloads(modpackId)
         return
       }
-      if (
-        source === 'modrinth' &&
-        get().installTarget === modpackId &&
-        get().category === category
-      ) {
+      if (get().installTarget === modpackId && get().category === category) {
         set({
           installedInTarget: {
             ...get().installedInTarget,
-            [projectId]: { ...result.item, projectId }
+            [installedKey(source, projectId)]: { ...result.item, projectId, source }
           }
         })
         void get().refreshInstalledInTarget()

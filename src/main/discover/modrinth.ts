@@ -175,6 +175,7 @@ export async function getModrinthVersion(versionId: string): Promise<ProviderVer
 /** Local-file metadata resolved from a sha1 hash. */
 export interface HashMatch {
   projectId: string
+  versionId: string
   versionNumber: string
 }
 
@@ -208,6 +209,7 @@ export async function getVersionsByHashes(hashes: string[]): Promise<Map<string,
     if (version !== undefined) {
       const match: HashMatch = {
         projectId: version.project_id,
+        versionId: version.id,
         versionNumber: version.version_number
       }
       hashCache.set(hash, match)

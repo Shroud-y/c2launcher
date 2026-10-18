@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import InstancePicker from './InstancePicker'
-import { useDiscoverStore } from '../../store/discoverStore'
+import { installedKey, useDiscoverStore } from '../../store/discoverStore'
 import { useModpackStore } from '../../store/modpackStore'
 import type { InstallableCategory, Modpack, SearchResult } from '@shared/types'
 import styles from './InstallAction.module.css'
@@ -60,12 +60,10 @@ export default function InstallAction({ result }: InstallActionProps): JSX.Eleme
   // Content locks to "Installed" only in the + button flow, where a single
   // target instance is fixed and already has this project. Modpacks never
   // lock — each install spawns a fresh instance, so re-installing is valid.
-  // installedInTarget is keyed by Modrinth project ids only.
   const installedInTarget = useDiscoverStore(
     (s) =>
-      result.source === 'modrinth' &&
       s.installTarget !== null &&
-      s.installedInTarget[result.id] !== undefined
+      s.installedInTarget[installedKey(result.source, result.id)] !== undefined
   )
   const installed = installedInTarget && category !== 'modpacks'
   const installPack = useDiscoverStore((s) => s.installPack)

@@ -197,18 +197,32 @@ export interface RunningGame {
   recentLogs: string[]
 }
 
+/** Where a local file was recognized: its project and exact version there. */
+export interface ContentRef {
+  projectId: string
+  versionId: string
+  versionNumber: string
+}
+
 export interface InstalledContent {
   /** Actual file name on disk, including a .disabled suffix when off. */
   fileName: string
   /** Display name — project title when known, else cleaned file name. */
   name: string
   enabled: boolean
-  /** Version string resolved from Modrinth by file hash; null offline/unknown. */
+  /** Version string of the primary source (see `source`); null offline/unknown. */
   versionNumber: string | null
-  /** Project icon resolved from Modrinth by file hash; null offline/unknown. */
+  /** Project icon from the primary source; null offline/unknown. */
   iconUrl: string | null
-  /** Source project id resolved from Modrinth by file hash; null offline/unknown. */
+  /** Project id in the primary source; null offline/unknown. */
   projectId: string | null
+  /**
+   * Source the display fields come from — Modrinth when it knows the file
+   * (by sha1), else CurseForge (by fingerprint); null when neither does.
+   */
+  source: ContentSource | null
+  /** Every source that recognized the file — a mod can live on both. */
+  sources: Partial<Record<ContentSource, ContentRef>>
 }
 
 export interface InstallContentParams {
@@ -239,6 +253,8 @@ export type InstallContentResult =
 export interface ContentUpdate {
   /** File currently on disk (may carry the .disabled suffix). */
   fileName: string
+  /** Where the newer version comes from. */
+  source: ContentSource
   projectId: string
   /** Version to install when the user accepts the update. */
   versionId: string

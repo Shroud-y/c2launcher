@@ -107,7 +107,7 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
       .catch(() => setModsError(`Could not read the ${EMPTY_NOTES[category].folder} folder`))
   }, [tab, content, modpackId])
 
-  // Ask Modrinth (by file hash) whether newer compatible versions exist.
+  // Ask Modrinth (sha1) and CurseForge (fingerprint) whether newer compatible versions exist.
   // Runs in parallel with the content listing above — the main process
   // reads the folder itself and shares a hash cache, so the "Update all"
   // button no longer waits for the list to finish first. Best-effort:
@@ -224,7 +224,7 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
     try {
       const added = await window.api.modpack.importContent(modpackId, addCategory)
       if (added.length > 0) {
-        // Show the new files immediately, then refresh so Modrinth metadata
+        // Show the new files immediately, then refresh so Modrinth/CurseForge metadata
         // (name, version, icon) fills in by hash.
         setContent((c) => ({ ...c, [addCategory]: [...(c[addCategory] ?? []), ...added] }))
         const enriched = await window.api.modpack.content(modpackId, addCategory)
@@ -291,7 +291,7 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
       setContent((c) => ({
         ...c,
         [category]: (c[category] ?? []).map((m) =>
-          // The toggle response carries no Modrinth metadata — keep ours.
+          // The toggle response carries no source metadata — keep ours.
           m.fileName === item.fileName
             ? { ...m, fileName: updated.fileName, enabled: updated.enabled }
             : m
@@ -327,14 +327,14 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
       const result = await window.api.modpack.installContent({
         modpackId,
         projectId: update.projectId,
-        source: 'modrinth',
+        source: update.source,
         category,
         versionId: update.versionId,
         replaceFileName: item.fileName
       })
       if (result.kind === 'manual') {
-        // Updates come from Modrinth, so this shouldn't happen — but if it
-        // does, the file is queued and the old one stays until it lands.
+        // A CurseForge update the author blocks from launchers: queued for
+        // the manual dialog; the old file goes once the new one lands.
         openManualDownloads(modpackId)
         return
       }

@@ -150,6 +150,8 @@ interface CfFile {
   gameVersions: string[]
   /** algo 1 = sha1, 2 = md5. */
   hashes?: { value: string; algo: number }[]
+  /** murmur2 of the whitespace-stripped file — see murmur2.ts. */
+  fileFingerprint?: number
 }
 
 const searchCache = makeCache<SearchResponse>()
@@ -620,4 +622,91 @@ export async function getCurseForgeModpackContents(
   entries.sort((a, b) => a.name.localeCompare(b.name))
   modpackContentsCache.set(cacheKey, entries)
   return entries
+}
+
+// ── Installed files (fingerprints) ──────────────────────────────────────
+
+/** A local file identified by its CurseForge fingerprint. */
+export interface CfFingerprintMatch {
+  modId: string
+  fileId: string
+  /** CurseForge has no version number — the file's display name stands in. */
+  versionNumber: string
+  fileDate: string
+}
+
+// 'unknown' marks fingerprints CurseForge doesn't recognize, so unknown
+// local files don't re-query on every listing.
+const fingerprintCache = makeCache<CfFingerprintMatch | 'unknown'>()
+
+interface CfFingerprintResponse {
+  exactMatches: { id: number; file: CfFile }[]
+}
+
+/**
+ * Batch fingerprint → file lookup; unknown fingerprints are absent from
+ * the result. A build without an API key resolves nothing.
+ */
+export async function getFilesByFingerprints(
+  fingerprints: number[]
+): Promise<Map<number, CfFingerprintMatch>> {
+  const result = new Map<number, CfFingerprintMatch>()
+  if (!isCurseForgeConfigured()) return result
+  const missing: number[] = []
+  for (const fp of new Set(fingerprints)) {
+    const cached = fingerprintCache.get(String(fp))
+    if (cached === null) missing.push(fp)
+    else if (cached !== 'unknown') result.set(fp, cached)
+  }
+  for (const batch of chunks(missing, BATCH_SIZE)) {
+    const raw = await cfFetch<CfResponse<CfFingerprintResponse>>(
+      `/fingerprints/${MINECRAFT_GAME_ID}`,
+      { method: 'POST', body: JSON.stringify({ fingerprints: batch }) }
+    )
+    const found = new Set<number>()
+    for (const m of raw.data.exactMatches) {
+      const fp = m.file.fileFingerprint
+      if (fp === undefined) continue
+      const match: CfFingerprintMatch = {
+        modId: String(m.file.modId),
+        fileId: String(m.file.id),
+        versionNumber: m.file.displayName,
+        fileDate: m.file.fileDate
+      }
+      fingerprintCache.set(String(fp), match)
+      result.set(fp, match)
+      found.add(fp)
+    }
+    for (const fp of batch) if (!found.has(fp)) fingerprintCache.set(String(fp), 'unknown')
+  }
+  return result
+}
+
+/** Batch project lookup for titles and icons (served from the mod cache when warm). */
+export async function getCurseForgeSummaries(
+  modIds: string[]
+): Promise<Map<string, { title: string; iconUrl: string | null }>> {
+  const result = new Map<string, { title: string; iconUrl: string | null }>()
+  const missing: number[] = []
+  for (const id of new Set(modIds)) {
+    const cached = modCache.get(id)
+    if (cached !== null) result.set(id, { title: cached.name, iconUrl: iconOf(cached) })
+    else missing.push(Number(id))
+  }
+  if (missing.length > 0) {
+    const mods = await getModsByIds(missing)
+    for (const mod of mods.values()) {
+      result.set(String(mod.id), { title: mod.name, iconUrl: iconOf(mod) })
+    }
+  }
+  return result
+}
+
+/** Newest file of a project matching the filter, or null when none fits. */
+export async function getLatestCurseForgeVersion(
+  modId: string,
+  filter: VersionFilter
+): Promise<ProviderVersion | null> {
+  const versions = await curseforgeProvider.getProjectVersions(modId, filter)
+  return versions[0] ?? null
 }
