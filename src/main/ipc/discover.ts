@@ -10,7 +10,11 @@ import type {
   SearchQuery,
   SearchResponse
 } from '@shared/types'
-import { getCurseForgeCategories, isCurseForgeConfigured } from '../discover/curseforge'
+import {
+  getCurseForgeCategories,
+  getCurseForgeModpackContents,
+  isCurseForgeConfigured
+} from '../discover/curseforge'
 import { getModpackContents } from '../discover/modrinth'
 import { providerFor } from '../discover/providers'
 
@@ -59,10 +63,16 @@ export function registerDiscoverIpc(): void {
       getCurseForgeCategories(category)
   )
 
-  // Modrinth only — CurseForge modpack contents arrive with CF modpack installs.
   ipcMain.handle(
     IpcChannel.DiscoverModpackContents,
-    (_e, projectId: string, versionId?: string): Promise<ModpackContentEntry[]> =>
-      getModpackContents(projectId, versionId)
+    (
+      _e,
+      source: ContentSource,
+      projectId: string,
+      versionId?: string
+    ): Promise<ModpackContentEntry[]> =>
+      source === 'curseforge'
+        ? getCurseForgeModpackContents(projectId, versionId)
+        : getModpackContents(projectId, versionId)
   )
 }

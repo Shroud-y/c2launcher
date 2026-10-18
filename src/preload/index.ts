@@ -14,7 +14,9 @@ import type {
   InstallableCategory,
   InstalledContent,
   InstallContentParams,
+  InstallContentResult,
   InstallProgress,
+  ManualPickResult,
   MinecraftProfile,
   ModLoader,
   Modpack,
@@ -62,12 +64,22 @@ const api = {
     remove: (id: string): Promise<void> => ipcRenderer.invoke(IpcChannel.ModpackDelete, id),
     installModrinthPack: (projectId: string, versionId?: string): Promise<Modpack> =>
       ipcRenderer.invoke(IpcChannel.ModpackInstallModrinth, projectId, versionId),
+    installCurseforgePack: (projectId: string, versionId?: string): Promise<Modpack> =>
+      ipcRenderer.invoke(IpcChannel.ModpackInstallCurseforge, projectId, versionId),
     importModpack: (): Promise<Modpack | null> =>
       ipcRenderer.invoke(IpcChannel.ModpackImportMrpack),
     exportModpack: (id: string): Promise<boolean> =>
       ipcRenderer.invoke(IpcChannel.ModpackExport, id),
-    installContent: (params: InstallContentParams): Promise<InstalledContent> =>
+    installContent: (params: InstallContentParams): Promise<InstallContentResult> =>
       ipcRenderer.invoke(IpcChannel.ModpackInstallMod, params),
+    /** Polls Downloads for the pack's pending manual downloads while on. */
+    manualWatch: (id: string, on: boolean): Promise<void> =>
+      ipcRenderer.invoke(IpcChannel.ModpackManualWatch, id, on),
+    /** File dialog for downloaded files; null when cancelled. */
+    manualPick: (id: string): Promise<ManualPickResult | null> =>
+      ipcRenderer.invoke(IpcChannel.ModpackManualPick, id),
+    manualSkip: (id: string, fileName: string): Promise<void> =>
+      ipcRenderer.invoke(IpcChannel.ModpackManualSkip, id, fileName),
     importContent: (id: string, category: InstallableCategory): Promise<InstalledContent[]> =>
       ipcRenderer.invoke(IpcChannel.ModpackImportContent, id, category),
     content: (id: string, category: InstallableCategory): Promise<InstalledContent[]> =>
@@ -109,9 +121,12 @@ const api = {
       ipcRenderer.invoke(IpcChannel.DiscoverProject, source, projectId),
     projectVersions: (source: ContentSource, projectId: string): Promise<ProjectVersionInfo[]> =>
       ipcRenderer.invoke(IpcChannel.DiscoverProjectVersions, source, projectId),
-    /** Modrinth modpacks only. */
-    modpackContents: (projectId: string, versionId?: string): Promise<ModpackContentEntry[]> =>
-      ipcRenderer.invoke(IpcChannel.DiscoverModpackContents, projectId, versionId),
+    modpackContents: (
+      source: ContentSource,
+      projectId: string,
+      versionId?: string
+    ): Promise<ModpackContentEntry[]> =>
+      ipcRenderer.invoke(IpcChannel.DiscoverModpackContents, source, projectId, versionId),
     curseforgeAvailable: (): Promise<boolean> =>
       ipcRenderer.invoke(IpcChannel.DiscoverCurseforgeAvailable),
     curseforgeCategories: (category: ContentCategory): Promise<DiscoverCategory[]> =>

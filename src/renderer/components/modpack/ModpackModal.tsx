@@ -47,6 +47,7 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
   const confirmBackdrop = useBackdropDismiss(() => {
     if (!deleting) setConfirmingDelete(false)
   })
+  const openManualDownloads = useModalStore((s) => s.openManualDownloads)
   const setInstallTarget = useDiscoverStore((s) => s.setInstallTarget)
   const setDiscoverCategory = useDiscoverStore((s) => s.setCategory)
   const {
@@ -323,7 +324,7 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
     setUpdatingFile(item.fileName)
     try {
       // Same switch path as Discover: new file lands, old one is removed.
-      const installed = await window.api.modpack.installContent({
+      const result = await window.api.modpack.installContent({
         modpackId,
         projectId: update.projectId,
         source: 'modrinth',
@@ -331,6 +332,13 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
         versionId: update.versionId,
         replaceFileName: item.fileName
       })
+      if (result.kind === 'manual') {
+        // Updates come from Modrinth, so this shouldn't happen — but if it
+        // does, the file is queued and the old one stays until it lands.
+        openManualDownloads(modpackId)
+        return
+      }
+      const installed = result.item
       setContent((c) => ({
         ...c,
         [category]: (c[category] ?? []).map((m) =>
@@ -506,6 +514,21 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
         {launchError !== null && <div className={styles.error}>{launchError}</div>}
         {exportError !== null && <div className={styles.error}>{exportError}</div>}
         {crashText !== null && <div className={styles.error}>{crashText}</div>}
+        {(pack.pendingDownloads ?? []).length > 0 && (
+          <div className={styles.pendingBanner}>
+            <span>
+              {(pack.pendingDownloads ?? []).length} file(s) need a manual download before this
+              pack is complete.
+            </span>
+            <button
+              type="button"
+              className={styles.pendingButton}
+              onClick={() => openManualDownloads(modpackId)}
+            >
+              Download files
+            </button>
+          </div>
+        )}
 
         <nav className={styles.tabs}>
           {([...CONTENT_TABS, 'settings', 'logs'] as ModalTab[]).map((t) => (

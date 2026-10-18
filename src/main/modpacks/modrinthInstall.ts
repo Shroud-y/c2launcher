@@ -1,32 +1,18 @@
 import AdmZip from 'adm-zip'
-import { BrowserWindow } from 'electron'
 import { mkdir, writeFile } from 'fs/promises'
-import { dirname, join } from 'path'
-import { IpcChannel } from '@shared/ipc-channels'
+import { dirname } from 'path'
 import { getModrinthVersion, modrinthProvider } from '../discover/modrinth'
 import { downloadAll, type DownloadTask } from '../minecraft/install'
-import { adoptUnknownInstances, createModpack, deleteModpack, instanceDirFor, listModpacks, updateModpack } from './store'
+import { installCurseForgeZip, isCurseForgeZip } from './curseforgeInstall'
+import {
+  broadcastModpackState,
+  extractOverrides,
+  fetchIconDataUrl,
+  safeJoin,
+  type PackInstallReporter
+} from './packCommon'
+import { createModpack, deleteModpack, instanceDirFor, updateModpack } from './store'
 import type { ModLoader, Modpack } from '@shared/types'
-
-/**
- * Fetches a project's Modrinth icon and returns it as a data URL so the
- * instance shows the same icon as the modpack listing. Best-effort:
- * returns null on any failure (offline, no icon, oversized).
- */
-async function fetchIconDataUrl(iconUrl: string | null): Promise<string | null> {
-  if (iconUrl === null || iconUrl === '') return null
-  try {
-    const res = await fetch(iconUrl)
-    if (!res.ok) return null
-    const buffer = Buffer.from(await res.arrayBuffer())
-    // Icons live inline in the registry JSON — keep them small.
-    if (buffer.byteLength > 1024 * 1024) return null
-    const type = res.headers.get('content-type') ?? 'image/png'
-    return `data:${type};base64,${buffer.toString('base64')}`
-  } catch {
-    return null
-  }
-}
 
 /**
  * Modpack install from Modrinth: download the .mrpack of the latest
@@ -56,30 +42,6 @@ export const LOADER_DEPENDENCIES: [string, ModLoader][] = [
   ['forge', 'forge'],
   ['neoforge', 'neoforge']
 ]
-
-/**
- * Joins an archive-relative path onto the instance dir, rejecting
- * anything that could escape it (.., absolute paths, drive letters).
- */
-function safeJoin(rootDir: string, relPath: string): string {
-  const parts = relPath.split(/[/\\]/)
-  if (parts.some((p) => p === '' || p === '.' || p === '..' || p.includes(':'))) {
-    throw new Error(`Unsafe path in modpack archive: ${relPath}`)
-  }
-  return join(rootDir, ...parts)
-}
-
-export interface PackInstallReporter {
-  (pack: Modpack, percent: number, message: string): void
-}
-
-async function broadcastModpackState(): Promise<void> {
-  await adoptUnknownInstances()
-  const modpacks = listModpacks()
-  for (const win of BrowserWindow.getAllWindows()) {
-    win.webContents.send(IpcChannel.ModpackStateChanged, modpacks)
-  }
-}
 
 export async function installModrinthPack(
   projectId: string,
@@ -111,9 +73,11 @@ export async function installModrinthPack(
 }
 
 /**
- * Installs a modpack from a local file already on disk. Two shapes are
+ * Installs a modpack from a local file already on disk. Three shapes are
  * supported, detected by content rather than extension:
  *   - a Modrinth `.mrpack` (has modrinth.index.json) → the Modrinth path;
+ *   - a CurseForge modpack zip (has a minecraftModpack manifest.json) →
+ *     the CurseForge path;
  *   - a plain `.zip` of a C² instance folder (the "share with a friend"
  *     case) → recreate the instance from its files and c2instance.json.
  * `fallbackName` (the file name, sans extension) names the instance when
@@ -132,6 +96,9 @@ export async function installModpackFromFile(
   }
   if (zip.getEntry('modrinth.index.json') !== null) {
     return installPackFromZip(zip, report, null)
+  }
+  if (isCurseForgeZip(zip)) {
+    return installCurseForgeZip(zip, report, null, fallbackName)
   }
   return installInstanceZip(zip, fallbackName, report)
 }
@@ -308,16 +275,7 @@ async function installPackFromZip(
 
     report(pack, 92, 'Applying overrides')
     // client-overrides comes second so it wins over shared overrides.
-    for (const prefix of ['overrides/', 'client-overrides/']) {
-      for (const entry of zip.getEntries()) {
-        if (entry.isDirectory || !entry.entryName.startsWith(prefix)) continue
-        const rel = entry.entryName.slice(prefix.length)
-        if (rel === '') continue
-        const dest = safeJoin(instanceDir, rel)
-        await mkdir(dirname(dest), { recursive: true })
-        await writeFile(dest, entry.getData())
-      }
-    }
+    await extractOverrides(zip, instanceDir, ['overrides/', 'client-overrides/'])
 
     report(pack, 100, 'Installed')
     return pack

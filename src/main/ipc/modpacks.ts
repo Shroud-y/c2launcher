@@ -10,7 +10,9 @@ import type {
   InstallableCategory,
   InstalledContent,
   InstallContentParams,
+  InstallContentResult,
   InstallProgress,
+  ManualPickResult,
   ModLoader,
   Modpack,
   ModpackSettings,
@@ -29,6 +31,14 @@ import {
   updateModpack
 } from '../modpacks/store'
 import { installModpackFromFile, installModrinthPack } from '../modpacks/modrinthInstall'
+import { installCurseForgePack } from '../modpacks/curseforgeInstall'
+import {
+  addPendingDownload,
+  placePickedFiles,
+  setWatching,
+  skipPendingDownload
+} from '../modpacks/manualDownloads'
+import type { PackInstallReporter } from '../modpacks/packCommon'
 import { exportModpack } from '../modpacks/export'
 import {
   checkContentUpdates,
@@ -321,6 +331,16 @@ async function runLaunch(modpack: Modpack, _sender: WebContents): Promise<void> 
 
   const session = await getMinecraftSession(loadRefreshToken, saveRefreshToken)
 
+  // Not blocking: the pack may still run without them, but warn loudly.
+  const pending = modpack.pendingDownloads ?? []
+  if (pending.length > 0) {
+    sendLog({
+      modpackId,
+      stream: 'system',
+      line: `Warning: ${pending.length} file(s) still need a manual download: ${pending.map((p) => p.fileName).join(', ')}`
+    })
+  }
+
   sendLog({ modpackId, stream: 'system', line: `Installing Minecraft ${modpack.gameVersion}…` })
   let meta = await ensureVersionInstalled(
     minecraftRoot(),
@@ -540,30 +560,45 @@ export function registerModpackIpc(): void {
     }
   )
 
+  /**
+   * Runs a pack install, marking the new instance busy from its first
+   * progress report until done, and streaming progress to the renderer.
+   */
+  async function runPackInstall(
+    install: (report: PackInstallReporter) => Promise<Modpack>
+  ): Promise<Modpack> {
+    let packId: string | null = null
+    try {
+      const pack = await install((p, percent, message) => {
+        if (packId === null) {
+          packId = p.id
+          busy.add(p.id)
+        }
+        sendProgress({ modpackId: p.id, phase: 'pack', percent: Math.round(percent), message })
+      })
+      sendProgress({ modpackId: pack.id, phase: 'done', percent: 100, message: 'Installed' })
+      return pack
+    } catch (err) {
+      if (packId !== null) {
+        const message = err instanceof Error ? err.message : 'Install failed'
+        sendProgress({ modpackId: packId, phase: 'error', percent: 0, message })
+      }
+      throw err
+    } finally {
+      if (packId !== null) busy.delete(packId)
+    }
+  }
+
   ipcMain.handle(
     IpcChannel.ModpackInstallModrinth,
-    async (_e, projectId: string, versionId?: string): Promise<Modpack> => {
-      let packId: string | null = null
-      try {
-        const pack = await installModrinthPack(projectId, (p, percent, message) => {
-          if (packId === null) {
-            packId = p.id
-            busy.add(p.id)
-          }
-          sendProgress({ modpackId: p.id, phase: 'pack', percent: Math.round(percent), message })
-        }, versionId)
-        sendProgress({ modpackId: pack.id, phase: 'done', percent: 100, message: 'Installed' })
-        return pack
-      } catch (err) {
-        if (packId !== null) {
-          const message = err instanceof Error ? err.message : 'Install failed'
-          sendProgress({ modpackId: packId, phase: 'error', percent: 0, message })
-        }
-        throw err
-      } finally {
-        if (packId !== null) busy.delete(packId)
-      }
-    }
+    (_e, projectId: string, versionId?: string): Promise<Modpack> =>
+      runPackInstall((report) => installModrinthPack(projectId, report, versionId))
+  )
+
+  ipcMain.handle(
+    IpcChannel.ModpackInstallCurseforge,
+    (_e, projectId: string, versionId?: string): Promise<Modpack> =>
+      runPackInstall((report) => installCurseForgePack(projectId, report, versionId))
   )
 
   ipcMain.handle(
@@ -643,8 +678,37 @@ export function registerModpackIpc(): void {
 
   ipcMain.handle(
     IpcChannel.ModpackInstallMod,
-    (_e, params: InstallContentParams): Promise<InstalledContent> =>
-      installContent(params)
+    async (_e, params: InstallContentParams): Promise<InstallContentResult> => {
+      const result = await installContent(params)
+      // Blocked from launcher downloads: queue it for the manual dialog.
+      if (result.kind === 'manual') await addPendingDownload(params.modpackId, result.download)
+      return result
+    }
+  )
+
+  ipcMain.handle(IpcChannel.ModpackManualWatch, (_e, id: string, on: boolean): void => {
+    setWatching(id, on)
+  })
+
+  ipcMain.handle(
+    IpcChannel.ModpackManualSkip,
+    (_e, id: string, fileName: string): Promise<void> => skipPendingDownload(id, fileName)
+  )
+
+  ipcMain.handle(
+    IpcChannel.ModpackManualPick,
+    async (event, id: string): Promise<ManualPickResult | null> => {
+      const win = BrowserWindow.fromWebContents(event.sender)
+      const options = {
+        title: 'Select downloaded files',
+        properties: ['openFile' as const, 'multiSelections' as const],
+        filters: [{ name: 'Mods and packs', extensions: ['jar', 'zip'] }]
+      }
+      const { canceled, filePaths } =
+        win !== null ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options)
+      if (canceled || filePaths.length === 0) return null
+      return placePickedFiles(id, filePaths)
+    }
   )
 
   // Accepted file extensions per category for the "Choose files" dialog.

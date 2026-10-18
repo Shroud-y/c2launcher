@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { useModalStore } from './modalStore'
 import { useModpackStore } from './modpackStore'
 import type {
   ContentCategory,
@@ -100,7 +101,7 @@ interface DiscoverState {
   search: () => Promise<void>
   /** Reloads `installedInTarget` from the locked instance's content folder. */
   refreshInstalledInTarget: () => Promise<void>
-  installPack: (projectId: string, versionId?: string) => Promise<void>
+  installPack: (source: ContentSource, projectId: string, versionId?: string) => Promise<void>
   installContent: (
     source: ContentSource,
     projectId: string,
@@ -251,15 +252,22 @@ export const useDiscoverStore = create<DiscoverState>((set, get) => ({
     }
   },
 
-  installPack: async (projectId, versionId): Promise<void> => {
+  installPack: async (source, projectId, versionId): Promise<void> => {
     set({
       installing: { ...get().installing, [projectId]: true },
       installErrors: { ...get().installErrors, [projectId]: '' }
     })
     try {
-      await window.api.modpack.installModrinthPack(projectId, versionId)
+      const pack =
+        source === 'curseforge'
+          ? await window.api.modpack.installCurseforgePack(projectId, versionId)
+          : await window.api.modpack.installModrinthPack(projectId, versionId)
       await useModpackStore.getState().load()
       set({ installed: { ...get().installed, [projectId]: true } })
+      // Some CurseForge files can only be downloaded by hand.
+      if ((pack.pendingDownloads ?? []).length > 0) {
+        useModalStore.getState().openManualDownloads(pack.id)
+      }
     } catch (err) {
       const message = err instanceof Error ? stripIpcPrefix(err.message) : 'Install failed'
       set({ installErrors: { ...get().installErrors, [projectId]: message } })
@@ -284,7 +292,7 @@ export const useDiscoverStore = create<DiscoverState>((set, get) => ({
     })
     try {
       // No `installed` flag here — the same mod can go into several instances.
-      const item = await window.api.modpack.installContent({
+      const result = await window.api.modpack.installContent({
         modpackId,
         projectId,
         source,
@@ -295,6 +303,11 @@ export const useDiscoverStore = create<DiscoverState>((set, get) => ({
       // Optimistic: flip the + flow's "Installed" state right away (the
       // returned item has no versionNumber), then refresh in the background
       // so the versions tab learns which exact version is on disk.
+      if (result.kind === 'manual') {
+        // Author blocks launcher downloads — queued on the pack, user fetches it.
+        useModalStore.getState().openManualDownloads(modpackId)
+        return
+      }
       if (
         source === 'modrinth' &&
         get().installTarget === modpackId &&
@@ -303,7 +316,7 @@ export const useDiscoverStore = create<DiscoverState>((set, get) => ({
         set({
           installedInTarget: {
             ...get().installedInTarget,
-            [projectId]: { ...item, projectId }
+            [projectId]: { ...result.item, projectId }
           }
         })
         void get().refreshInstalledInTarget()

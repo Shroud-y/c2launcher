@@ -14,6 +14,11 @@ export enum IpcChannel {
   ModpackLaunch = 'modpack:launch',
   ModpackInstallMod = 'modpack:install-mod',
   ModpackInstallModrinth = 'modpack:install-mrpack',
+  ModpackInstallCurseforge = 'modpack:install-curseforge',
+  /** Start/stop watching Downloads for a pack's pending manual downloads. */
+  ModpackManualWatch = 'modpack:manual-watch',
+  ModpackManualPick = 'modpack:manual-pick',
+  ModpackManualSkip = 'modpack:manual-skip',
   ModpackImportMrpack = 'modpack:import-mrpack',
   ModpackImportContent = 'modpack:import-content',
   ModpackExport = 'modpack:export',

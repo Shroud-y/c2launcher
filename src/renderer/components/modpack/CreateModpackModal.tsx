@@ -22,6 +22,7 @@ export default function CreateModpackModal(): JSX.Element {
   const { closing, requestClose } = useCloseAnimation(closeCreate)
   const backdrop = useBackdropDismiss(requestClose)
   const openModpack = useModalStore((s) => s.openModpack)
+  const openManualDownloads = useModalStore((s) => s.openManualDownloads)
   const create = useModpackStore((s) => s.create)
   const importModpack = useModpackStore((s) => s.importModpack)
 
@@ -95,6 +96,8 @@ export default function CreateModpackModal(): JSX.Element {
       }
       closeCreate()
       openModpack(pack.id)
+      // CurseForge zips can reference files only downloadable by hand.
+      if ((pack.pendingDownloads ?? []).length > 0) openManualDownloads(pack.id)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to import modpack')
       setSubmitting(false)

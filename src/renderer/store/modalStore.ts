@@ -9,6 +9,8 @@ interface ModalState {
   isCustomThemeOpen: boolean
   /** Discover result whose detail modal is open. */
   discoverResult: SearchResult | null
+  /** Modpack whose manual-download dialog is open (CurseForge blocked files). */
+  manualDownloadsFor: string | null
   openModpack: (id: string) => void
   closeModpack: () => void
   openCreate: () => void
@@ -21,6 +23,8 @@ interface ModalState {
   closeCustomTheme: () => void
   openDiscoverProject: (result: SearchResult) => void
   closeDiscoverProject: () => void
+  openManualDownloads: (modpackId: string) => void
+  closeManualDownloads: () => void
 }
 
 export const useModalStore = create<ModalState>((set) => ({
@@ -29,6 +33,7 @@ export const useModalStore = create<ModalState>((set) => ({
   isSettingsOpen: false,
   isCustomThemeOpen: false,
   discoverResult: null,
+  manualDownloadsFor: null,
   openModpack: (id): void => set({ openModpackId: id }),
   closeModpack: (): void => set({ openModpackId: null }),
   openCreate: (): void => set({ isCreateOpen: true }),
@@ -38,5 +43,7 @@ export const useModalStore = create<ModalState>((set) => ({
   openCustomTheme: (): void => set({ isCustomThemeOpen: true, isSettingsOpen: false }),
   closeCustomTheme: (): void => set({ isCustomThemeOpen: false, isSettingsOpen: true }),
   openDiscoverProject: (result): void => set({ discoverResult: result }),
-  closeDiscoverProject: (): void => set({ discoverResult: null })
+  closeDiscoverProject: (): void => set({ discoverResult: null }),
+  openManualDownloads: (modpackId): void => set({ manualDownloadsFor: modpackId }),
+  closeManualDownloads: (): void => set({ manualDownloadsFor: null })
 }))

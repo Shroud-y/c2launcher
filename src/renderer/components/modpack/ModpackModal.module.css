@@ -261,6 +261,33 @@
   font-size: 13px;
 }
 
+.pendingBanner {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--accent-bg-soft);
+  border: 1px solid var(--accent);
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.pendingBanner span {
+  flex: 1;
+}
+
+.pendingButton {
+  flex-shrink: 0;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--text-on-accent);
+  font-size: 12px;
+  font-weight: 600;
+}
+
 .placeholderNote {
   padding: 24px 12px;
   color: var(--text-muted);

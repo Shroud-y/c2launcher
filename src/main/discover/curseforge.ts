@@ -1,8 +1,10 @@
+import AdmZip from 'adm-zip'
 import { app } from 'electron'
 import type {
   ContentCategory,
   DiscoverCategory,
   ModLoader,
+  ModpackContentEntry,
   ProjectDetail,
   SearchQuery,
   SearchResponse,
@@ -155,6 +157,10 @@ const modCache = makeCache<CfMod>()
 const projectCache = makeCache<ProjectDetail>()
 const filesCache = makeCache<CfFile[]>()
 const categoriesCache = makeCache<DiscoverCategory[]>()
+const modpackContentsCache = makeCache<ModpackContentEntry[]>()
+
+/** Batch endpoints take id lists; keep each request body reasonable. */
+const BATCH_SIZE = 200
 
 function releaseKey(version: string): number[] | null {
   const parts = version.split('.').map(Number)
@@ -406,4 +412,212 @@ export const curseforgeProvider: ContentProvider = {
     ])
     return toProviderVersion(file.data, mod)
   }
+}
+
+// ── Modpacks (manifest.json) ────────────────────────────────────────────
+
+/** A CurseForge modpack's manifest.json (manifestType "minecraftModpack"). */
+export interface CfManifest {
+  /** Null when the manifest has no usable name. */
+  name: string | null
+  minecraft: {
+    version: string
+    /** e.g. { id: "forge-47.2.0", primary: true } */
+    modLoaders?: { id: string; primary?: boolean }[]
+  }
+  files: { projectID: number; fileID: number; required?: boolean }[]
+  /** Archive folder holding config/scripts/etc.; "overrides" by default. */
+  overrides: string
+}
+
+/** Reads and sanity-checks manifest.json; null when the zip isn't a CurseForge pack. */
+export function readCfManifest(zip: AdmZip): CfManifest | null {
+  const entry = zip.getEntry('manifest.json')
+  if (entry === null) return null
+  let raw: unknown
+  try {
+    raw = JSON.parse(entry.getData().toString('utf-8'))
+  } catch {
+    return null
+  }
+  const m = raw as Partial<CfManifest> & { manifestType?: unknown }
+  if (m.manifestType !== 'minecraftModpack') return null
+  if (typeof m.minecraft?.version !== 'string' || !Array.isArray(m.files)) return null
+  return {
+    name: typeof m.name === 'string' && m.name.trim() !== '' ? m.name.trim() : null,
+    minecraft: m.minecraft,
+    files: m.files.filter((f) => Number.isInteger(f?.projectID) && Number.isInteger(f?.fileID)),
+    overrides: typeof m.overrides === 'string' && m.overrides !== '' ? m.overrides : 'overrides'
+  }
+}
+
+/** Primary manifest loader id ("forge-47.2.0") → our loader + version; vanilla when none. */
+export function parseManifestLoader(manifest: CfManifest): {
+  loader: ModLoader
+  loaderVersion: string | null
+} {
+  const entries = manifest.minecraft.modLoaders ?? []
+  const primary = entries.find((l) => l.primary === true) ?? entries[0]
+  if (primary === undefined) return { loader: 'vanilla', loaderVersion: null }
+  const dash = primary.id.indexOf('-')
+  const name = (dash === -1 ? primary.id : primary.id.slice(0, dash)).toLowerCase()
+  if (!LOADER_NAMES.has(name)) {
+    throw new Error(`Unsupported mod loader in modpack: ${primary.id}`)
+  }
+  let version = dash === -1 ? null : primary.id.slice(dash + 1)
+  // Some packs spell NeoForge 1.20.1 as "neoforge-1.20.1-47.1.x"; we store
+  // just the build (the MC prefix is re-added where needed).
+  const mcPrefix = `${manifest.minecraft.version}-`
+  if (version !== null && version.startsWith(mcPrefix)) version = version.slice(mcPrefix.length)
+  return { loader: name as ModLoader, loaderVersion: version !== '' ? version : null }
+}
+
+/** Instance folder per project class; other classes (worlds, …) can't be placed. */
+const CLASS_DIRS: Record<number, string> = {
+  6: 'mods',
+  12: 'resourcepacks',
+  6552: 'shaderpacks',
+  6945: 'datapacks'
+}
+
+/** A manifest entry resolved against the API. */
+export interface ResolvedPackFile {
+  modId: number
+  fileId: number
+  /** Project title (file name when the project lookup failed). */
+  name: string
+  fileName: string
+  /** Null when the author forbids launcher downloads. */
+  url: string | null
+  sha1: string | null
+  size: number
+  /** Instance folder; null for content types we can't place. */
+  dir: string | null
+  pageUrl: string | null
+  iconUrl: string | null
+}
+
+function chunks<T>(items: T[], size: number): T[][] {
+  const out: T[][] = []
+  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size))
+  return out
+}
+
+async function getFilesByIds(ids: number[]): Promise<Map<number, CfFile>> {
+  const result = new Map<number, CfFile>()
+  for (const batch of chunks(ids, BATCH_SIZE)) {
+    const raw = await cfFetch<CfResponse<CfFile[]>>('/mods/files', {
+      method: 'POST',
+      body: JSON.stringify({ fileIds: batch })
+    })
+    for (const file of raw.data) result.set(file.id, file)
+  }
+  return result
+}
+
+async function getModsByIds(ids: number[]): Promise<Map<number, CfMod>> {
+  const result = new Map<number, CfMod>()
+  for (const batch of chunks(ids, BATCH_SIZE)) {
+    const raw = await cfFetch<CfResponse<CfMod[]>>('/mods', {
+      method: 'POST',
+      body: JSON.stringify({ modIds: batch })
+    })
+    for (const mod of raw.data) {
+      result.set(mod.id, mod)
+      modCache.set(String(mod.id), mod)
+    }
+  }
+  return result
+}
+
+/**
+ * Resolves the manifest's required files to download info in two batch
+ * calls (files, then their projects for class/title/page). Optional
+ * (`required: false`) entries are left out. Throws when a file id is
+ * unknown to the API — a partially resolvable pack would install broken.
+ */
+export async function resolvePackFiles(manifest: CfManifest): Promise<ResolvedPackFile[]> {
+  const refs = manifest.files.filter((f) => f.required !== false)
+  if (refs.length === 0) return []
+  const files = await getFilesByIds(refs.map((r) => r.fileID))
+  const mods = await getModsByIds([...new Set(refs.map((r) => r.projectID))])
+
+  const missing = refs.filter((r) => !files.has(r.fileID))
+  if (missing.length > 0) {
+    throw new Error(
+      `CurseForge no longer serves ${missing.length} file(s) of this modpack (e.g. file ${missing[0].fileID})`
+    )
+  }
+
+  return refs.map((ref) => {
+    const file = files.get(ref.fileID) as CfFile
+    const mod = mods.get(ref.projectID) ?? null
+    const classDir = mod?.classId !== undefined ? CLASS_DIRS[mod.classId] : undefined
+    // Unknown class, but a jar is a mod.
+    const dir = classDir ?? (file.fileName.endsWith('.jar') ? 'mods' : null)
+    const websiteUrl = mod?.links?.websiteUrl ?? null
+    return {
+      modId: ref.projectID,
+      fileId: ref.fileID,
+      name: mod?.name ?? file.fileName,
+      fileName: file.fileName,
+      url: file.downloadUrl,
+      sha1: file.hashes?.find((h) => h.algo === 1)?.value ?? null,
+      size: file.fileLength,
+      dir,
+      pageUrl: websiteUrl !== null ? `${websiteUrl}/files/${file.id}` : null,
+      iconUrl: mod !== null ? iconOf(mod) : null
+    }
+  })
+}
+
+/**
+ * Downloads a CurseForge modpack's zip — the given file, or the newest one.
+ * A modpack zip can be blocked from launcher downloads like any file; the
+ * error then points at its page so the user can download it and use Import.
+ */
+export async function downloadCurseForgePack(
+  projectId: string,
+  versionId?: string
+): Promise<AdmZip> {
+  const version =
+    versionId !== undefined
+      ? await curseforgeProvider.getVersion(projectId, versionId)
+      : (await curseforgeProvider.getProjectVersions(projectId))[0]
+  const file = version?.files.find((f) => f.filename.endsWith('.zip'))
+  if (file === undefined) throw new Error('This project has no installable modpack file')
+  if (file.url === null) {
+    const where = file.manualUrl !== undefined ? ` from ${file.manualUrl}` : ' from CurseForge'
+    throw new Error(
+      `The author doesn't allow launcher downloads of this modpack — download the zip${where} and use Import`
+    )
+  }
+  const res = await fetch(file.url)
+  if (!res.ok) throw new Error(`Modpack download failed (${res.status})`)
+  return new AdmZip(Buffer.from(await res.arrayBuffer()))
+}
+
+/**
+ * Lists the content bundled in a CurseForge modpack: downloads the pack
+ * zip, reads manifest.json and resolves every entry's title and icon.
+ */
+export async function getCurseForgeModpackContents(
+  projectId: string,
+  versionId?: string
+): Promise<ModpackContentEntry[]> {
+  const cacheKey = `${projectId}:${versionId ?? 'latest'}`
+  const cached = modpackContentsCache.get(cacheKey)
+  if (cached !== null) return cached
+
+  const manifest = readCfManifest(await downloadCurseForgePack(projectId, versionId))
+  if (manifest === null) return []
+  const entries: ModpackContentEntry[] = (await resolvePackFiles(manifest)).map((f) => ({
+    projectId: String(f.modId),
+    name: f.name,
+    iconUrl: f.iconUrl,
+    fileName: `${f.dir ?? 'other'}/${f.fileName}`
+  }))
+  entries.sort((a, b) => a.name.localeCompare(b.name))
+  modpackContentsCache.set(cacheKey, entries)
+  return entries
 }

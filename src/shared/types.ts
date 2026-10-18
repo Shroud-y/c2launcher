@@ -17,10 +17,41 @@ export interface Modpack {
   /** Custom icon as a data URL; absent/null renders the default glyph. */
   icon?: string | null
   iconTint: IconTint
+  /**
+   * CurseForge files whose authors forbid launcher downloads. The user
+   * fetches them in a browser; the launcher picks them up from Downloads
+   * (or a file picker) by sha1 and removes them from this list.
+   */
+  pendingDownloads?: ManualDownload[]
   memoryMb: number
   javaArgs: string
   createdAt: number
   lastPlayedAt: number | null
+}
+
+/** A file the user has to download by hand (see Modpack.pendingDownloads). */
+export interface ManualDownload {
+  /** Project title, for display. */
+  name: string
+  /** File name to place it under in the instance. */
+  fileName: string
+  /** Instance-relative folder: mods, resourcepacks, shaderpacks or datapacks. */
+  dir: string
+  /** Expected sha1 — how a downloaded file is recognized regardless of its name. */
+  sha1: string | null
+  size: number
+  /** CurseForge page to download it from. */
+  pageUrl: string | null
+  /** File of an older version to delete once this one lands (version switch). */
+  replaces?: string
+}
+
+/** Outcome of picking files by hand for a pack's pending downloads. */
+export interface ManualPickResult {
+  /** Pending files that were matched and placed. */
+  placed: number
+  /** Picked files that matched nothing pending (by sha1). */
+  unmatched: string[]
 }
 
 export interface CreateModpackParams {
@@ -195,6 +226,15 @@ export interface InstallContentParams {
   replaceFileName?: string
 }
 
+/**
+ * Result of a single content install: either the file landed, or its
+ * author blocks launcher downloads and it was queued on the pack's
+ * pendingDownloads for the manual-download dialog.
+ */
+export type InstallContentResult =
+  | { kind: 'installed'; item: InstalledContent }
+  | { kind: 'manual'; download: ManualDownload }
+
 /** A newer compatible version available for an installed content file. */
 export interface ContentUpdate {
   /** File currently on disk (may carry the .disabled suffix). */
@@ -205,13 +245,13 @@ export interface ContentUpdate {
   versionNumber: string
 }
 
-/** One entry in a Discover modpack's bundled content list (from its .mrpack). */
+/** One entry in a Discover modpack's bundled content list (from its .mrpack / manifest.json). */
 export interface ModpackContentEntry {
-  /** Modrinth project id when the file is a CDN download; null for external URLs. */
+  /** Source project id when resolved; null for external URLs. */
   projectId: string | null
   /** Project title when resolved, else the archive file name. */
   name: string
-  /** Modrinth project icon; null when unresolved or offline. */
+  /** Project icon; null when unresolved or offline. */
   iconUrl: string | null
   /** Archive-relative file path (e.g. mods/sodium-x.y.z.jar). */
   fileName: string

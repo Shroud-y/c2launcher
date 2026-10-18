@@ -2,13 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import DOMPurify from 'dompurify'
 import { marked } from 'marked'
 import { CloseIcon, WindIcon } from '../common/Icons'
-import InstallAction, {
-  CF_MODPACK_UNSUPPORTED,
-  installTargets,
-  isUnsupportedPack,
-  PICKER_TITLES,
-  pickerEmptyMessage
-} from './InstallAction'
+import InstallAction, { installTargets, PICKER_TITLES, pickerEmptyMessage } from './InstallAction'
 import InstancePicker from './InstancePicker'
 import Dropdown from '../common/Dropdown'
 import { useCloseAnimation } from '../../hooks/useCloseAnimation'
@@ -141,10 +135,10 @@ export default function ProjectModal({ result }: ProjectModalProps): JSX.Element
   useEffect(() => {
     if (tab !== 'contents' || contents !== null) return
     window.api.discover
-      .modpackContents(result.id)
+      .modpackContents(result.source, result.id)
       .then(setContents)
       .catch(() => setContentsError('Could not load the mod list'))
-  }, [tab, contents, result.id])
+  }, [tab, contents, result.source, result.id])
 
   const bodyHtml = useMemo(
     () => (detail === null ? '' : renderBody(detail)),
@@ -187,7 +181,7 @@ export default function ProjectModal({ result }: ProjectModalProps): JSX.Element
   function onVersionInstallClick(versionId: string): void {
     if (category === 'modpacks') {
       setInstallingVersionId(versionId)
-      void installPack(result.id, versionId).finally(() => setInstallingVersionId(null))
+      void installPack(result.source, result.id, versionId).finally(() => setInstallingVersionId(null))
     } else if (installTarget !== null) {
       // Locked to one instance (+ button flow) — no picker. When another
       // version is already installed, this is a switch: the old file is
@@ -217,17 +211,14 @@ export default function ProjectModal({ result }: ProjectModalProps): JSX.Element
 
   const gallery = detail?.gallery ?? []
   // Gallery tab only appears once the project loaded with images; the Mods
-  // (contents) tab only makes sense for modpacks, and is read from the
-  // .mrpack — Modrinth only for now.
+  // (contents) tab only makes sense for modpacks.
   const tabs = useMemo<ModalTab[]>(() => {
     const list: ModalTab[] = ['description']
     if (gallery.length > 0) list.push('gallery')
-    if (category === 'modpacks' && result.source === 'modrinth') list.push('contents')
+    if (category === 'modpacks') list.push('contents')
     list.push('versions')
     return list
-  }, [gallery.length, category, result.source])
-
-  const unsupportedPack = isUnsupportedPack(result, category)
+  }, [gallery.length, category])
 
   const downloads = detail?.downloads ?? result.downloads
   const followers = detail?.followers
@@ -407,18 +398,10 @@ export default function ProjectModal({ result }: ProjectModalProps): JSX.Element
                             type="button"
                             className={styles.downloadButton}
                             disabled={
-                              installingVersionId !== null ||
-                              installing ||
-                              incompatible ||
-                              isCurrent ||
-                              unsupportedPack
+                              installingVersionId !== null || installing || incompatible || isCurrent
                             }
                             title={
-                              unsupportedPack
-                                ? CF_MODPACK_UNSUPPORTED
-                                : incompatible
-                                  ? `Not compatible with ${targetPack.name}`
-                                  : undefined
+                              incompatible ? `Not compatible with ${targetPack.name}` : undefined
                             }
                             onClick={() => onVersionInstallClick(v.id)}
                           >

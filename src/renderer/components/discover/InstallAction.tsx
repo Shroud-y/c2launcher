@@ -44,13 +44,6 @@ export function installTargets(
   })
 }
 
-/** CurseForge modpack installs (manifest.json + file resolution) aren't wired yet. */
-export const CF_MODPACK_UNSUPPORTED = "CurseForge modpack installs aren't supported yet"
-
-export function isUnsupportedPack(result: SearchResult, category: string): boolean {
-  return result.source === 'curseforge' && category === 'modpacks'
-}
-
 export function pickerEmptyMessage(category: InstallableCategory): string {
   return category === 'mods'
     ? 'No compatible instance — needs a matching loader and game version.'
@@ -80,8 +73,6 @@ export default function InstallAction({ result }: InstallActionProps): JSX.Eleme
   const installTarget = useDiscoverStore((s) => s.installTarget)
   const modpacks = useModpackStore((s) => s.modpacks)
 
-  const unsupported = isUnsupportedPack(result, category)
-
   const [pickingTarget, setPickingTarget] = useState(false)
   const [loadingCompat, setLoadingCompat] = useState(false)
   const [compat, setCompat] = useState<Compatibility | null>(null)
@@ -107,7 +98,7 @@ export default function InstallAction({ result }: InstallActionProps): JSX.Eleme
 
   function onInstallClick(): void {
     if (category === 'modpacks') {
-      void installPack(result.id)
+      void installPack(result.source, result.id)
     } else if (installTarget !== null) {
       // Locked to one instance (+ button flow) — install there directly.
       void installContent(result.source, result.id, installTarget)
@@ -126,8 +117,7 @@ export default function InstallAction({ result }: InstallActionProps): JSX.Eleme
       <button
         type="button"
         className={installed ? styles.installedButton : styles.installButton}
-        disabled={installing || installed || loadingCompat || unsupported}
-        title={unsupported ? CF_MODPACK_UNSUPPORTED : undefined}
+        disabled={installing || installed || loadingCompat}
         onClick={(e) => {
           e.stopPropagation()
           onInstallClick()

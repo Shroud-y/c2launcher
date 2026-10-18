@@ -1,0 +1,197 @@
+/* Overlay/pop animations mirror CreateModpackModal; z-index sits above the
+   modpack and project modals this dialog opens over. */
+.overlay {
+  position: fixed;
+  inset: 0;
+  -webkit-app-region: no-drag;
+  background: var(--overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 120;
+  animation: overlayFadeIn 0.18s ease;
+}
+
+@keyframes overlayFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes modalPopIn {
+  from { opacity: 0; transform: translateY(8px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.overlay.closing {
+  animation: overlayFadeOut 0.18s ease forwards;
+}
+
+.overlay.closing .modal {
+  animation: modalPopOut 0.18s ease forwards;
+}
+
+@keyframes overlayFadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes modalPopOut {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to { opacity: 0; transform: translateY(8px) scale(0.97); }
+}
+
+.modal {
+  position: relative;
+  animation: modalPopIn 0.18s ease;
+  width: 560px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--bg-secondary);
+  border-radius: var(--card-radius);
+  padding: 24px;
+}
+
+.closeButton {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  color: var(--text-muted);
+}
+
+.closeButton:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.text {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.progress {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--bg-primary);
+}
+
+.rowText {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.rowName {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rowFile {
+  font-size: 11px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.openButton,
+.skipButton,
+.primaryButton,
+.secondaryButton {
+  flex-shrink: 0;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.openButton {
+  background: var(--accent);
+  color: var(--text-on-accent);
+}
+
+.skipButton {
+  color: var(--text-muted);
+}
+
+.skipButton:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.note {
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--danger-bg);
+  border: 1px solid var(--danger-border);
+  color: var(--danger);
+  font-size: 12px;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.watching {
+  margin-right: auto;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.secondaryButton {
+  padding: 8px 14px;
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.secondaryButton:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.primaryButton {
+  padding: 8px 14px;
+  background: var(--accent);
+  color: var(--text-on-accent);
+}

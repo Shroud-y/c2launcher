@@ -8,6 +8,7 @@ import CreateModpackModal from './components/modpack/CreateModpackModal'
 import SettingsModal from './components/settings/SettingsModal'
 import CustomThemeModal from './components/settings/CustomThemeModal'
 import ProjectModal from './components/discover/ProjectModal'
+import ManualDownloadsModal from './components/modpack/ManualDownloadsModal'
 import UpdateOverlay from './components/update/UpdateOverlay'
 import Home from './pages/Home'
 import Discover from './pages/Discover'
@@ -23,6 +24,7 @@ export default function App(): JSX.Element {
   const isSettingsOpen = useModalStore((s) => s.isSettingsOpen)
   const isCustomThemeOpen = useModalStore((s) => s.isCustomThemeOpen)
   const discoverResult = useModalStore((s) => s.discoverResult)
+  const manualDownloadsFor = useModalStore((s) => s.manualDownloadsFor)
   const initAuth = useAuthStore((s) => s.init)
   const loadModpacks = useModpackStore((s) => s.load)
   const startEventSubscriptions = useModpackStore((s) => s.startEventSubscriptions)
@@ -65,6 +67,9 @@ export default function App(): JSX.Element {
         {isCustomThemeOpen && <CustomThemeModal />}
         {discoverResult !== null && (
           <ProjectModal key={discoverResult.id} result={discoverResult} />
+        )}
+        {manualDownloadsFor !== null && (
+          <ManualDownloadsModal key={manualDownloadsFor} modpackId={manualDownloadsFor} />
         )}
         <UpdateOverlay />
       </div>

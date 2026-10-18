@@ -7,7 +7,7 @@ import {
   getProjectsByIds,
   getVersionsByHashes
 } from '../discover/modrinth'
-import type { ProviderVersionFile, VersionFilter } from '../discover/provider'
+import type { VersionFilter } from '../discover/provider'
 import { providerFor } from '../discover/providers'
 import { downloadFile } from '../minecraft/install'
 import { getModpack, instanceDirFor } from './store'
@@ -15,6 +15,7 @@ import type {
   ContentUpdate,
   InstallableCategory,
   InstallContentParams,
+  InstallContentResult,
   InstalledContent,
   Modpack
 } from '@shared/types'
@@ -224,18 +225,6 @@ export async function removeContentFile(
   await rm(join(contentDir(modpackId, category), fileName), { force: true })
 }
 
-/**
- * A file's direct URL, or an error pointing at its download page when the
- * author disallows third-party downloads (CurseForge only).
- */
-function downloadUrlOf(file: ProviderVersionFile): string {
-  if (file.url !== null) return file.url
-  const where = file.manualUrl !== undefined ? `: ${file.manualUrl}` : ' from CurseForge'
-  throw new Error(
-    `The author of ${file.filename} doesn't allow launcher downloads — download it manually${where}`
-  )
-}
-
 function versionFilterFor(category: InstallableCategory, pack: Modpack): VersionFilter {
   const gameVersions = pack.gameVersion !== null ? [pack.gameVersion] : undefined
   if (category === 'mods') {
@@ -296,8 +285,10 @@ export async function checkContentUpdates(
  * Downloads one content file from the requested source (Modrinth or
  * CurseForge) into the instance. Without an explicit version the newest
  * one compatible with the pack's game version (and loader, for mods) wins.
+ * A file whose author forbids launcher downloads comes back as a 'manual'
+ * entry for the caller to queue on the pack — nothing is written then.
  */
-export async function installContent(params: InstallContentParams): Promise<InstalledContent> {
+export async function installContent(params: InstallContentParams): Promise<InstallContentResult> {
   const provider = providerFor(params.source)
   const pack = getModpack(params.modpackId)
   if (pack === null) throw new Error('Modpack not found')
@@ -335,8 +326,23 @@ export async function installContent(params: InstallContentParams): Promise<Inst
   }
 
   assertSafeFileName(file.filename, params.category)
+  if (file.url === null) {
+    const project = await provider.getProject(params.projectId).catch(() => null)
+    return {
+      kind: 'manual',
+      download: {
+        name: project?.name ?? file.filename,
+        fileName: file.filename,
+        dir: target.dir,
+        sha1: file.sha1,
+        size: file.size,
+        pageUrl: file.manualUrl ?? null,
+        replaces: params.replaceFileName
+      }
+    }
+  }
   await downloadFile(
-    downloadUrlOf(file),
+    file.url,
     join(instanceDirFor(pack), target.dir, file.filename),
     file.sha1 ?? undefined
   )
@@ -345,5 +351,5 @@ export async function installContent(params: InstallContentParams): Promise<Inst
     assertSafeFileName(params.replaceFileName, params.category)
     await rm(join(instanceDirFor(pack), target.dir, params.replaceFileName), { force: true })
   }
-  return toInstalledContent(file.filename)
+  return { kind: 'installed', item: toInstalledContent(file.filename) }
 }
