@@ -56,6 +56,10 @@ jobs:
         # electron-builder picks the host OS targets from electron-builder.yml
         # (Windows -> nsis, Linux -> AppImage + deb) and uploads them into the
         # pre-created draft named after the tag. GH_TOKEN authenticates upload.
+        # CURSEFORGE_API_KEY is inlined into the main bundle at build time
+        # (electron.vite.config.ts); without the repo secret the build still
+        # succeeds but ships with CurseForge disabled.
         run: pnpm dist --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CURSEFORGE_API_KEY: ${{ secrets.CURSEFORGE_API_KEY }}
