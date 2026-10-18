@@ -1,10 +1,7 @@
 /// <reference types="electron-vite/node" />
 
-interface ImportMetaEnv {
-  /** CurseForge API key from .env.local, inlined at build time. Absent = CurseForge disabled. */
-  readonly MAIN_VITE_CURSEFORGE_API_KEY?: string
-}
-
-interface ImportMeta {
-  readonly env: ImportMetaEnv
-}
+/**
+ * CurseForge API key (CURSEFORGE_API_KEY in .env.local or the environment),
+ * inlined at build time by electron.vite.config.ts. Empty = CurseForge disabled.
+ */
+declare const __CURSEFORGE_API_KEY__: string

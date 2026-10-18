@@ -13,8 +13,8 @@ import { makeCache } from './cache'
 
 /**
  * CurseForge Core API v1 client. Every request needs the launcher's API
- * key, inlined at build time from MAIN_VITE_CURSEFORGE_API_KEY
- * (.env.local, never committed). A build without the key keeps CurseForge
+ * key, inlined at build time from CURSEFORGE_API_KEY (.env.local, never
+ * committed; see electron.vite.config.ts). A build without the key keeps CurseForge
  * disabled instead of failing at startup.
  *
  * All traffic goes through cfFetch() — swapping the direct API for a
@@ -22,7 +22,7 @@ import { makeCache } from './cache'
  */
 
 const CF_BASE_URL = 'https://api.curseforge.com/v1'
-const API_KEY = import.meta.env.MAIN_VITE_CURSEFORGE_API_KEY ?? ''
+const API_KEY = __CURSEFORGE_API_KEY__
 
 /** CurseForge game id for Minecraft. */
 const MINECRAFT_GAME_ID = 432

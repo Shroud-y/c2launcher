@@ -11,7 +11,7 @@ native/splash/*.res
 *.tsbuildinfo
 .claude/
 claude*
-# Local env files hold the CurseForge API key (MAIN_VITE_CURSEFORGE_API_KEY).
-# It is baked into the build by electron-vite and must never be committed.
+# Local env files hold the CurseForge API key (CURSEFORGE_API_KEY).
+# It is baked into the build by electron.vite.config.ts and must never be committed.
 .env
 .env.*
