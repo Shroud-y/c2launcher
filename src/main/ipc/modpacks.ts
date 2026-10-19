@@ -15,6 +15,7 @@ import type {
   ManualPickResult,
   ModLoader,
   Modpack,
+  ModpackGroup,
   ModpackSettings,
   RunningGame
 } from '@shared/types'
@@ -25,11 +26,14 @@ import {
   deleteModpack,
   getModpack,
   instanceDirFor,
+  listGroups,
   listModpacks,
   migrateInstanceDirs,
   minecraftRoot,
+  saveGroups,
   updateModpack
 } from '../modpacks/store'
+import { dirSize } from '../settings/dataMigrate'
 import { installModpackFromFile, installModrinthPack } from '../modpacks/modrinthInstall'
 import { installCurseForgePack } from '../modpacks/curseforgeInstall'
 import {
@@ -515,6 +519,25 @@ export function registerModpackIpc(): void {
     }
     await deleteModpack(id)
   })
+
+  ipcMain.handle(IpcChannel.ModpackDiskUsage, async (_e, ids: string[]): Promise<number> => {
+    // Instance folders only: the shared versions/libraries/assets are not
+    // freed by deleting a pack, so counting them would overstate the gain.
+    const sizes = await Promise.all(
+      ids.map((id) => {
+        const pack = getModpack(id)
+        return pack === null ? 0 : dirSize(instanceDirFor(pack))
+      })
+    )
+    return sizes.reduce((sum, size) => sum + size, 0)
+  })
+
+  ipcMain.handle(IpcChannel.ModpackGroups, (): ModpackGroup[] => listGroups())
+
+  ipcMain.handle(
+    IpcChannel.ModpackSaveGroups,
+    (_e, groups: ModpackGroup[]): ModpackGroup[] => saveGroups(groups)
+  )
 
   ipcMain.handle(IpcChannel.ModpackOpenFolder, async (_e, id: string): Promise<void> => {
     const modpack = getModpack(id)

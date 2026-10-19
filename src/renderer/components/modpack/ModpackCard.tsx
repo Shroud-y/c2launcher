@@ -15,9 +15,23 @@ interface ModpackCardProps {
   modpack: Modpack
   /** Tint resolved from grid position; falls back to the pack's stored tint. */
   tint?: IconTint
+  selected?: boolean
+  /** Highlighted as the drop target of a drag in progress. */
+  dropTarget?: boolean
+  /** Ctrl/Shift+click; when given, such clicks select instead of opening. */
+  onModifierClick?: (e: React.MouseEvent) => void
+  /** Drag & drop handlers (grouping); the card is draggable when given. */
+  dragProps?: React.HTMLAttributes<HTMLButtonElement>
 }
 
-export default function ModpackCard({ modpack, tint = modpack.iconTint }: ModpackCardProps): JSX.Element {
+export default function ModpackCard({
+  modpack,
+  tint = modpack.iconTint,
+  selected = false,
+  dropTarget = false,
+  onModifierClick,
+  dragProps
+}: ModpackCardProps): JSX.Element {
   const openModpack = useModalStore((s) => s.openModpack)
   const progress = useModpackStore((s) => s.installProgress[modpack.id])
   const gameState = useModpackStore((s) => s.gameStates[modpack.id])
@@ -34,13 +48,22 @@ export default function ModpackCard({ modpack, tint = modpack.iconTint }: Modpac
   return (
     <button
       type="button"
-      className={styles.card}
-      onClick={() => {
+      className={[styles.card, selected && styles.selected, dropTarget && styles.dropTarget]
+        .filter(Boolean)
+        .join(' ')}
+      onClick={(e) => {
         if (isInstalling) return
+        if (onModifierClick !== undefined && (e.ctrlKey || e.metaKey || e.shiftKey)) {
+          onModifierClick(e)
+          return
+        }
         openModpack(modpack.id)
       }}
+      draggable={dragProps !== undefined && !isInstalling}
+      {...dragProps}
       disabled={isInstalling}
       aria-disabled={isInstalling}
+      aria-pressed={onModifierClick !== undefined ? selected : undefined}
     >
       {isRunning && <span className={styles.runningDot} aria-hidden="true" />}
       <span className={`${styles.icon} ${TINT_CLASS[tint]}`}>

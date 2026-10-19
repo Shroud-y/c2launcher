@@ -20,6 +20,7 @@ import type {
   MinecraftProfile,
   ModLoader,
   Modpack,
+  ModpackGroup,
   ModpackContentEntry,
   ModpackSettings,
   ProjectDetail,
@@ -62,6 +63,13 @@ const api = {
     running: (): Promise<RunningGame[]> => ipcRenderer.invoke(IpcChannel.ModpackRunning),
     openFolder: (id: string): Promise<void> => ipcRenderer.invoke(IpcChannel.ModpackOpenFolder, id),
     remove: (id: string): Promise<void> => ipcRenderer.invoke(IpcChannel.ModpackDelete, id),
+    /** Bytes taken by the given instances' folders. */
+    diskUsage: (ids: string[]): Promise<number> =>
+      ipcRenderer.invoke(IpcChannel.ModpackDiskUsage, ids),
+    groups: (): Promise<ModpackGroup[]> => ipcRenderer.invoke(IpcChannel.ModpackGroups),
+    /** Stores the groups; resolves with the normalized list main kept. */
+    saveGroups: (groups: ModpackGroup[]): Promise<ModpackGroup[]> =>
+      ipcRenderer.invoke(IpcChannel.ModpackSaveGroups, groups),
     installModrinthPack: (projectId: string, versionId?: string): Promise<Modpack> =>
       ipcRenderer.invoke(IpcChannel.ModpackInstallModrinth, projectId, versionId),
     installCurseforgePack: (projectId: string, versionId?: string): Promise<Modpack> =>

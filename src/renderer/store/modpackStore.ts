@@ -1,9 +1,11 @@
 import { create } from 'zustand'
+import { normalizeGroups } from '@shared/groups'
 import type {
   CreateModpackParams,
   GameStateKind,
   InstallProgress,
   Modpack,
+  ModpackGroup,
   ModpackSettings
 } from '@shared/types'
 
@@ -11,6 +13,8 @@ const LOG_CAP = 1000
 
 interface ModpackState {
   modpacks: Modpack[]
+  /** Home-grid folders; always normalized against `modpacks`. */
+  groups: ModpackGroup[]
   loaded: boolean
   /** Active install progress per modpack id; cleared on done/error. */
   installProgress: Record<string, InstallProgress>
@@ -30,6 +34,8 @@ interface ModpackState {
   launch: (id: string) => Promise<void>
   stop: (id: string) => Promise<void>
   remove: (id: string) => Promise<void>
+  /** Applies a new group list right away and persists it in main. */
+  saveGroups: (groups: ModpackGroup[]) => Promise<void>
   startEventSubscriptions: () => void
 }
 
@@ -49,6 +55,7 @@ function upsertModpack(modpacks: Modpack[], modpack: Modpack): Modpack[] {
 
 export const useModpackStore = create<ModpackState>((set, get) => ({
   modpacks: [],
+  groups: [],
   loaded: false,
   installProgress: {},
   gameStates: {},
@@ -61,7 +68,10 @@ export const useModpackStore = create<ModpackState>((set, get) => ({
     // Games survive the launcher now, so on startup some may already be
     // running. Their 'running' state event fired during adoption, before this
     // renderer existed, so seed it (and the log tail) here instead.
-    const running = await window.api.modpack.running()
+    const [running, groups] = await Promise.all([
+      window.api.modpack.running(),
+      window.api.modpack.groups()
+    ])
     const gameStates = { ...get().gameStates }
     const logs = { ...get().logs }
     for (const game of running) {
@@ -72,7 +82,7 @@ export const useModpackStore = create<ModpackState>((set, get) => ({
         logs[game.modpackId] = game.recentLogs.slice(-LOG_CAP)
       }
     }
-    set({ modpacks, loaded: true, gameStates, logs })
+    set({ modpacks, groups, loaded: true, gameStates, logs })
   },
 
   create: async (params): Promise<Modpack> => {
@@ -122,7 +132,15 @@ export const useModpackStore = create<ModpackState>((set, get) => ({
 
   remove: async (id): Promise<void> => {
     await window.api.modpack.remove(id)
-    set({ modpacks: get().modpacks.filter((m) => m.id !== id) })
+    // Main has already dropped it from its group; mirror that locally.
+    const modpacks = get().modpacks.filter((m) => m.id !== id)
+    set({ modpacks, groups: normalizeGroups(get().groups, modpacks.map((m) => m.id)) })
+  },
+
+  saveGroups: async (groups): Promise<void> => {
+    // Optimistic, so a drop regroups instantly; main's normalized copy wins.
+    set({ groups: normalizeGroups(groups, get().modpacks.map((m) => m.id)) })
+    set({ groups: await window.api.modpack.saveGroups(groups) })
   },
 
   startEventSubscriptions: (): void => {
@@ -130,7 +148,11 @@ export const useModpackStore = create<ModpackState>((set, get) => ({
     subscribed = true
 
     window.api.modpack.onStateChanged((modpacks) => {
-      set({ modpacks, loaded: true })
+      set({
+        modpacks,
+        groups: normalizeGroups(get().groups, modpacks.map((m) => m.id)),
+        loaded: true
+      })
     })
 
     window.api.modpack.onInstallProgress((p) => {

@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import ModpackGrid from '../components/modpack/ModpackGrid'
 import HeroCard, { WelcomeHero } from '../components/modpack/HeroCard'
+import SelectionBar from '../components/modpack/SelectionBar'
+import { useModalStore } from '../store/modalStore'
 import { useModpackStore } from '../store/modpackStore'
+import { useSelectionStore } from '../store/selectionStore'
 import type { Modpack } from '@shared/types'
 import styles from './Home.module.css'
 
@@ -58,7 +61,19 @@ export default function Home(): JSX.Element {
     }
   }, [modpacks.length])
 
-  const emptySlots = Math.max(0, rows * COLS - modpacks.length)
+  // Esc drops the multi-selection — unless a modal is up (Esc closes that)
+  // or focus is in a field.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key !== 'Escape' || e.defaultPrevented) return
+      if (useModalStore.getState().openModpackId !== null) return
+      const target = e.target as HTMLElement | null
+      if (target !== null && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) return
+      useSelectionStore.getState().clear()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
   return (
     <div className={styles.page}>
@@ -73,8 +88,10 @@ export default function Home(): JSX.Element {
       </div>
 
       <div ref={gridRef}>
-        <ModpackGrid modpacks={modpacks} emptySlots={emptySlots} />
+        <ModpackGrid modpacks={modpacks} minSlots={rows * COLS} />
       </div>
+
+      <SelectionBar />
     </div>
   )
 }

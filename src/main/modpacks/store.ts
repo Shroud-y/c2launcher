@@ -4,7 +4,15 @@ import { existsSync } from 'fs'
 import { mkdir, readdir, readFile, rename, rm, writeFile } from 'fs/promises'
 import { join } from 'path'
 import { getDataDir } from '../settings/store'
-import type { CreateModpackParams, IconTint, ModLoader, Modpack, ModpackSettings } from '@shared/types'
+import { normalizeGroups } from '@shared/groups'
+import type {
+  CreateModpackParams,
+  IconTint,
+  ModLoader,
+  Modpack,
+  ModpackGroup,
+  ModpackSettings
+} from '@shared/types'
 
 /**
  * Local modpack registry (metadata in electron-store) plus the on-disk
@@ -21,13 +29,15 @@ import type { CreateModpackParams, IconTint, ModLoader, Modpack, ModpackSettings
 
 interface ModpackStoreSchema {
   modpacks: Modpack[]
+  /** Home-grid folders (see ModpackGroup). */
+  groups: ModpackGroup[]
 }
 
 let store: Store<ModpackStoreSchema> | null = null
 
 function getStore(): Store<ModpackStoreSchema> {
   if (store === null) {
-    store = new Store<ModpackStoreSchema>({ name: 'modpacks', defaults: { modpacks: [] } })
+    store = new Store<ModpackStoreSchema>({ name: 'modpacks', defaults: { modpacks: [], groups: [] } })
   }
   return store
 }
@@ -81,6 +91,35 @@ function uniqueDirName(name: string, excludeId?: string): string {
 
 export function listModpacks(): Modpack[] {
   return getStore().get('modpacks')
+}
+
+/** Groups, normalized against the current registry. */
+export function listGroups(): ModpackGroup[] {
+  return normalizeGroups(storedGroups(), listModpacks().map((m) => m.id))
+}
+
+function storedGroups(): ModpackGroup[] {
+  return getStore().get('groups') ?? []
+}
+
+function isGroup(value: unknown): value is ModpackGroup {
+  if (typeof value !== 'object' || value === null) return false
+  const g = value as Record<string, unknown>
+  return (
+    typeof g.id === 'string' &&
+    typeof g.name === 'string' &&
+    Array.isArray(g.memberIds) &&
+    g.memberIds.every((id) => typeof id === 'string')
+  )
+}
+
+/** Replaces the group list (normalized first) and returns what was stored. */
+export function saveGroups(groups: ModpackGroup[]): ModpackGroup[] {
+  // Comes straight from IPC — drop anything that isn't group-shaped.
+  const valid = Array.isArray(groups) ? groups.filter(isGroup) : []
+  const normalized = normalizeGroups(valid, listModpacks().map((m) => m.id))
+  getStore().set('groups', normalized)
+  return normalized
 }
 
 export function getModpack(id: string): Modpack | null {
@@ -254,6 +293,8 @@ export async function deleteModpack(id: string): Promise<void> {
     'modpacks',
     listModpacks().filter((m) => m.id !== id)
   )
+  // Drop it from its group too (dissolving a group left with one member).
+  saveGroups(storedGroups())
 }
 
 // Coalesces concurrent calls into a single run: the renderer loads the

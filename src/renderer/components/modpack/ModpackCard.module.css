@@ -34,6 +34,17 @@
   background: var(--bg-secondary);
 }
 
+/* Multi-selection and drag & drop states — an outline only, so the card's
+   own look stays as is. */
+.selected {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.dropTarget {
+  box-shadow: inset 0 0 0 2px var(--accent-mint);
+  background: var(--bg-hover);
+}
+
 .icon {
   display: flex;
   align-items: center;

@@ -1,0 +1,115 @@
+/* The tile reuses ModpackCard's .card/.icon/.text; only the collage and the
+   opened panel are styled here. */
+
+.collage {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 4px;
+  padding: 7px;
+}
+
+.mini {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 0;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.2);
+  overflow: hidden;
+}
+
+.miniImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.tileOpen {
+  background: var(--bg-hover);
+}
+
+.panel {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--card-radius);
+  transition: border-color 0.15s;
+}
+
+.panelDrop {
+  border-color: var(--accent-mint);
+}
+
+.panelHead {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 28px;
+  padding: 0 4px;
+}
+
+.panelName {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--accent);
+  cursor: text;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nameInput {
+  width: 220px;
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.textButton {
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  transition: background 0.15s, color 0.15s;
+}
+
+.textButton:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.iconButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  color: var(--text-muted);
+  transition: background 0.15s, color 0.15s;
+}
+
+.iconButton:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}

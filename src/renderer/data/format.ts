@@ -25,3 +25,12 @@ export function formatSubtitle(pack: Modpack): string | null {
   const loaderLabel = pack.loader.charAt(0).toUpperCase() + pack.loader.slice(1)
   return `${loaderLabel} ${pack.gameVersion}`
 }
+
+/** "1.4 GB" / "320 MB" / "12 KB". */
+export function formatBytes(bytes: number): string {
+  const GB = 1024 ** 3
+  const MB = 1024 ** 2
+  if (bytes >= GB) return `${(bytes / GB).toFixed(1)} GB`
+  if (bytes >= MB) return `${Math.round(bytes / MB)} MB`
+  return `${Math.max(0, Math.round(bytes / 1024))} KB`
+}

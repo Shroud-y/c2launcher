@@ -33,6 +33,10 @@ export enum IpcChannel {
   ModpackRunning = 'modpack:running',
   ModpackOpenFolder = 'modpack:open-folder',
   ModpackDelete = 'modpack:delete',
+  /** Total on-disk size of the given instances' folders. */
+  ModpackDiskUsage = 'modpack:disk-usage',
+  ModpackGroups = 'modpack:groups',
+  ModpackSaveGroups = 'modpack:save-groups',
   MinecraftVersions = 'minecraft:versions',
   LoaderCheck = 'loader:check',
   LoaderVersions = 'loader:versions',

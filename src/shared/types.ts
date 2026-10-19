@@ -29,6 +29,18 @@ export interface Modpack {
   lastPlayedAt: number | null
 }
 
+/**
+ * A folder on the Home grid holding several instances. A pack belongs to at
+ * most one group; groups with fewer than two members dissolve (see
+ * shared/groups normalizeGroups).
+ */
+export interface ModpackGroup {
+  id: string
+  name: string
+  /** Member modpack ids, in the order they were added. */
+  memberIds: string[]
+}
+
 /** A file the user has to download by hand (see Modpack.pendingDownloads). */
 export interface ManualDownload {
   /** Project title, for display. */
