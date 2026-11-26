@@ -173,7 +173,32 @@
 .accountText {
   display: flex;
   flex-direction: column;
+  flex: 1;
   min-width: 0;
+}
+
+.hintRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.gearButton {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  color: var(--text-muted);
+  transition: background 0.15s, color 0.15s, transform 0.3s;
+}
+
+.gearButton:hover {
+  background: var(--bg-hover);
+  color: var(--accent);
+  transform: rotate(45deg);
 }
 
 .username {
@@ -225,4 +250,53 @@
 .error {
   font-size: 12px;
   color: var(--danger);
+}
+
+/* Microsoft / Offline choice and the offline nickname form share this row. */
+.loginRow {
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+}
+
+.loginRow .loginButton {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+}
+
+.secondaryButton {
+  flex-shrink: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 700;
+  transition: background 0.15s, color 0.15s;
+}
+
+.secondaryButton:hover:enabled {
+  color: var(--accent);
+}
+
+.secondaryButton:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.nickInput {
+  flex: 2;
+  min-width: 0;
+  padding: 7px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 14px;
+  outline: none;
+}
+
+.nickInput:focus {
+  border-color: var(--accent);
 }

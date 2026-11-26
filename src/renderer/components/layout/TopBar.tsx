@@ -1,6 +1,8 @@
 import { useLocation } from 'react-router-dom'
 import { CloseIcon, LogoIcon, MaximizeIcon, MinimizeIcon } from '../common/Icons'
 import { useUpdateStore } from '../../store/updateStore'
+import { useModalStore } from '../../store/modalStore'
+import { useModpackStore } from '../../store/modpackStore'
 import styles from './TopBar.module.css'
 
 const PAGE_TITLES: Record<string, string> = {
@@ -10,7 +12,12 @@ const PAGE_TITLES: Record<string, string> = {
 
 export default function TopBar(): JSX.Element {
   const { pathname } = useLocation()
-  const title = PAGE_TITLES[pathname] ?? 'C² Launcher'
+  // The full-window instance page covers the route below, so name the pack.
+  const openModpackId = useModalStore((s) => s.openModpackId)
+  const openPackName = useModpackStore((s) =>
+    openModpackId === null ? null : (s.modpacks.find((m) => m.id === openModpackId)?.name ?? null)
+  )
+  const title = openPackName ?? PAGE_TITLES[pathname] ?? 'C² Launcher'
   // Block closing while an update is downloading/installing so the user can't
   // kill the app mid-update.
   const updating = useUpdateStore((s) => s.active)

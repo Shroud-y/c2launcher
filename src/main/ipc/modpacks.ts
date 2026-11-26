@@ -67,8 +67,7 @@ import {
   verifyGameProcess
 } from '../minecraft/runningGames'
 import { ensureMojangRuntime, findJava } from '../minecraft/java'
-import { getMinecraftSession } from '../auth/microsoftAuth'
-import { loadRefreshToken, saveRefreshToken } from '../auth/tokenStore'
+import { getLaunchAuth } from '../auth/activeSession'
 import { getJavaOverride, getMinimizeToTrayOnLaunch } from '../settings/store'
 import { getMainWindow, revealWindow } from '../index'
 
@@ -333,7 +332,10 @@ async function runLaunch(modpack: Modpack, _sender: WebContents): Promise<void> 
     throw new Error('This modpack has no game version assigned')
   }
 
-  const session = await getMinecraftSession(loadRefreshToken, saveRefreshToken)
+  const auth = await getLaunchAuth()
+  if (auth.warning !== null) {
+    sendLog({ modpackId, stream: 'system', line: `Warning: ${auth.warning}` })
+  }
 
   // Not blocking: the pack may still run without them, but warn loudly.
   const pending = modpack.pendingDownloads ?? []
@@ -396,7 +398,8 @@ async function runLaunch(modpack: Modpack, _sender: WebContents): Promise<void> 
     gameDir: instanceDirFor(modpack),
     memoryMb: modpack.memoryMb,
     extraJavaArgs: modpack.javaArgs,
-    session,
+    session: auth.session,
+    authJvmArgs: auth.jvmArgs,
     logFile
   })
 

@@ -1,6 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { CloseIcon, DownloadIcon, FolderIcon, PlusIcon, UploadIcon, WindIcon } from '../common/Icons'
+import {
+  ChevronDownIcon,
+  DownloadIcon,
+  FolderIcon,
+  PlayIcon,
+  PlusIcon,
+  SearchIcon,
+  StopIcon,
+  TrashIcon,
+  UploadIcon,
+  WindIcon
+} from '../common/Icons'
 import Dropdown from '../common/Dropdown'
 import { useCloseAnimation } from '../../hooks/useCloseAnimation'
 import { useBackdropDismiss } from '../../hooks/useBackdropDismiss'
@@ -31,6 +42,8 @@ const EMPTY_NOTES: Record<InstallableCategory, { label: string; folder: string }
   datapacks: { label: 'data packs', folder: 'datapacks' }
 }
 
+const SOURCE_LABELS: Record<string, string> = { modrinth: 'Modrinth', curseforge: 'CurseForge' }
+
 function isContentTab(tab: ModalTab): tab is InstallableCategory {
   return (CONTENT_TABS as string[]).includes(tab)
 }
@@ -43,7 +56,6 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
   const navigate = useNavigate()
   const closeModpack = useModalStore((s) => s.closeModpack)
   const { closing, requestClose } = useCloseAnimation(closeModpack)
-  const backdrop = useBackdropDismiss(requestClose)
   const confirmBackdrop = useBackdropDismiss(() => {
     if (!deleting) setConfirmingDelete(false)
   })
@@ -414,18 +426,18 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
   }
 
   return (
-    <div className={`${styles.overlay} ${closing ? styles.closing : ''}`} {...backdrop}>
-      <div
-        className={styles.modal}
-        role="dialog"
-        aria-label={pack.name}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <button type="button" className={styles.closeButton} aria-label="Close" onClick={requestClose}>
-          <CloseIcon />
-        </button>
-
+    <div className={`${styles.overlay} ${closing ? styles.closing : ''}`}>
+      <div className={styles.modal} role="dialog" aria-label={pack.name}>
         <header className={styles.header}>
+          <button
+            type="button"
+            className={styles.backButton}
+            aria-label="Back"
+            title="Back (Esc)"
+            onClick={requestClose}
+          >
+            <ChevronDownIcon size={20} className={styles.backIcon} />
+          </button>
           <button
             type="button"
             className={styles.icon}
@@ -436,63 +448,25 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
             {(pack.icon ?? null) !== null ? (
               <img className={styles.iconImage} src={pack.icon ?? ''} alt="" />
             ) : (
-              <WindIcon size={36} />
+              <WindIcon size={34} />
             )}
           </button>
           <div className={styles.headerText}>
             <h2 className={styles.name}>{localPack?.name ?? pack.name}</h2>
-            {subtitle !== null && <span className={styles.badge}>{subtitle}</span>}
-            {statusText !== null && <span className={styles.status}>{statusText}</span>}
+            <div className={styles.meta}>
+              {subtitle !== null && <span className={styles.badge}>{subtitle}</span>}
+              {statusText !== null && <span className={styles.status}>{statusText}</span>}
+            </div>
+            {progress !== undefined && (
+              <div className={styles.progressTrack}>
+                <div className={styles.progressFill} style={{ width: `${progress.percent}%` }} />
+              </div>
+            )}
           </div>
           <div className={styles.headerActions}>
-            {localPack !== null && (
-              <button
-                type="button"
-                className={styles.folderButton}
-                title="Add content from Discover"
-                aria-label="Add content from Discover"
-                onClick={addContent}
-              >
-                <PlusIcon />
-              </button>
-            )}
-            {localPack !== null && (
-              <button
-                type="button"
-                className={styles.folderButton}
-                title="Import from files"
-                aria-label="Import content from files"
-                disabled={importingFiles}
-                onClick={() => void importFiles()}
-              >
-                <DownloadIcon />
-              </button>
-            )}
-            {localPack !== null && (
-              <button
-                type="button"
-                className={styles.folderButton}
-                title="Export modpack (.mrpack / .zip)"
-                aria-label="Export modpack"
-                disabled={exporting}
-                onClick={() => void exportPack()}
-              >
-                <UploadIcon />
-              </button>
-            )}
-            {localPack !== null && (
-              <button
-                type="button"
-                className={styles.folderButton}
-                title="Open instance folder"
-                aria-label="Open instance folder"
-                onClick={() => void window.api.modpack.openFolder(modpackId)}
-              >
-                <FolderIcon />
-              </button>
-            )}
             {isRunning ? (
               <button type="button" className={styles.stopButton} onClick={() => void stop(modpackId)}>
+                <StopIcon size={18} />
                 Stop
               </button>
             ) : (
@@ -500,33 +474,61 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
                 type="button"
                 className={styles.playButton}
                 disabled={localPack === null || isInstalling}
-                title={
-                  localPack === null ? 'Available after Modrinth integration (Phase 4)' : undefined
-                }
                 onClick={play}
               >
+                <PlayIcon size={18} />
                 Play
               </button>
+            )}
+            {localPack !== null && (
+              <>
+                <button
+                  type="button"
+                  className={styles.roundButton}
+                  title="Export modpack (.mrpack / .zip)"
+                  aria-label="Export modpack"
+                  disabled={exporting}
+                  onClick={() => void exportPack()}
+                >
+                  <UploadIcon size={18} />
+                </button>
+                <button
+                  type="button"
+                  className={styles.roundButton}
+                  title="Open instance folder"
+                  aria-label="Open instance folder"
+                  onClick={() => void window.api.modpack.openFolder(modpackId)}
+                >
+                  <FolderIcon size={18} />
+                </button>
+              </>
             )}
           </div>
         </header>
 
-        {launchError !== null && <div className={styles.error}>{launchError}</div>}
-        {exportError !== null && <div className={styles.error}>{exportError}</div>}
-        {crashText !== null && <div className={styles.error}>{crashText}</div>}
-        {(pack.pendingDownloads ?? []).length > 0 && (
-          <div className={styles.pendingBanner}>
-            <span>
-              {(pack.pendingDownloads ?? []).length} file(s) need a manual download before this
-              pack is complete.
-            </span>
-            <button
-              type="button"
-              className={styles.pendingButton}
-              onClick={() => openManualDownloads(modpackId)}
-            >
-              Download files
-            </button>
+        {(launchError !== null ||
+          exportError !== null ||
+          crashText !== null ||
+          (pack.pendingDownloads ?? []).length > 0) && (
+          <div className={styles.banners}>
+            {launchError !== null && <div className={styles.error}>{launchError}</div>}
+            {exportError !== null && <div className={styles.error}>{exportError}</div>}
+            {crashText !== null && <div className={styles.error}>{crashText}</div>}
+            {(pack.pendingDownloads ?? []).length > 0 && (
+              <div className={styles.pendingBanner}>
+                <span>
+                  {(pack.pendingDownloads ?? []).length} file(s) need a manual download before this
+                  pack is complete.
+                </span>
+                <button
+                  type="button"
+                  className={styles.pendingButton}
+                  onClick={() => openManualDownloads(modpackId)}
+                >
+                  Download files
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -549,6 +551,52 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
         <div className={styles.body}>
         {isContentTab(tab) && (
           <>
+            {localPack !== null && (
+              <div className={styles.contentToolbar}>
+                <label className={styles.searchBox}>
+                  <SearchIcon size={16} />
+                  <input
+                    type="text"
+                    className={styles.searchInput}
+                    placeholder={`Search ${tabContent.length} ${EMPTY_NOTES[tab].label}…`}
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                  />
+                </label>
+                <button
+                  type="button"
+                  className={styles.toolbarButton}
+                  title="Import content from files"
+                  disabled={importingFiles}
+                  onClick={() => void importFiles()}
+                >
+                  <DownloadIcon size={16} />
+                  Import files
+                </button>
+                <button
+                  type="button"
+                  className={styles.toolbarPrimary}
+                  title="Add content from Discover"
+                  onClick={addContent}
+                >
+                  <PlusIcon size={16} />
+                  Add content
+                </button>
+              </div>
+            )}
+            {tabUpdateCount > 0 && (
+              <div className={styles.subToolbar}>
+                <button
+                  type="button"
+                  className={styles.updateAllButton}
+                  disabled={bulkUpdating || updatingFile !== null}
+                  onClick={() => void updateAll(tab)}
+                >
+                  <DownloadIcon size={15} />
+                  {bulkUpdating ? 'Updating…' : `Update all (${tabUpdateCount})`}
+                </button>
+              </div>
+            )}
             {modsError !== null && <div className={styles.error}>{modsError}</div>}
             {content[tab] === undefined ? (
               <div className={styles.placeholderNote}>Reading {EMPTY_NOTES[tab].label}…</div>
@@ -557,99 +605,91 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
                 No {EMPTY_NOTES[tab].label} installed. Find some on the Discover page, or drop
                 files into the modpack&apos;s <code>{EMPTY_NOTES[tab].folder}</code> folder.
               </div>
+            ) : visibleContent.length === 0 ? (
+              <div className={styles.placeholderNote}>No matches for “{search}”.</div>
             ) : (
-              <>
-                <div className={styles.contentToolbar}>
-                  <input
-                    type="text"
-                    className={styles.searchInput}
-                    placeholder={`Search ${EMPTY_NOTES[tab].label}…`}
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                  />
-                  {tabUpdateCount > 0 && (
-                    <button
-                      type="button"
-                      className={styles.updateAllButton}
-                      disabled={bulkUpdating || updatingFile !== null}
-                      onClick={() => void updateAll(tab)}
-                    >
-                      {bulkUpdating ? 'Updating…' : `Update all (${tabUpdateCount})`}
-                    </button>
-                  )}
+              <div className={styles.table}>
+                <div className={styles.tableHead}>
+                  <span>Project</span>
+                  <span>Version</span>
+                  <span className={styles.actionsHead}>Actions</span>
                 </div>
-                {visibleContent.length === 0 ? (
-                  <div className={styles.placeholderNote}>No matches for “{search}”.</div>
-                ) : (
-                  <ul className={styles.modList}>
-                    {visibleContent.map((item) => {
-                  const update = updates[tab]?.[item.fileName]
-                  return (
-                  <li key={item.fileName} className={styles.modRow}>
-                    {item.iconUrl !== null ? (
-                      <img className={styles.modIcon} src={item.iconUrl} alt="" />
-                    ) : (
-                      <span className={styles.modIconFallback}>
-                        <WindIcon size={18} />
-                      </span>
-                    )}
-                    <div className={styles.modInfo}>
-                      <span className={styles.modName}>{item.name}</span>
-                      {(item.versionNumber !== null || !item.enabled) && (
-                        <span className={styles.modVersion}>
-                          {[item.versionNumber, item.enabled ? null : 'Disabled']
-                            .filter((p) => p !== null)
-                            .join(' · ')}
-                        </span>
-                      )}
-                    </div>
-                    <div className={styles.modActions}>
-                      {update !== undefined && (
-                        <button
-                          type="button"
-                          className={
-                            updatingFile === item.fileName ? styles.modUpdateBusy : styles.modUpdate
-                          }
-                          disabled={updatingFile !== null}
-                          title={`Update to ${update.versionNumber}`}
-                          aria-label={`Update ${item.name} to ${update.versionNumber}`}
-                          onClick={() => void applyUpdate(tab, item)}
-                        >
-                          <DownloadIcon size={15} />
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        role="switch"
-                        aria-checked={item.enabled}
-                        aria-label={`${item.enabled ? 'Disable' : 'Enable'} ${item.name}`}
-                        className={item.enabled ? styles.toggleOn : styles.toggle}
-                        onClick={() => void toggleContent(tab, item)}
+                <ul className={styles.modList}>
+                  {visibleContent.map((item) => {
+                    const update = updates[tab]?.[item.fileName]
+                    return (
+                      <li
+                        key={item.fileName}
+                        className={`${styles.modRow} ${item.enabled ? '' : styles.modRowDisabled}`}
                       >
-                        <span className={styles.toggleKnob} />
-                      </button>
-                      <button
-                        type="button"
-                        className={styles.modRemove}
-                        aria-label={`Remove ${item.name}`}
-                        title="Remove file"
-                        onClick={() => void removeContent(tab, item)}
-                      >
-                        <CloseIcon size={14} />
-                      </button>
-                    </div>
-                  </li>
-                  )
-                })}
-                  </ul>
-                )}
-              </>
+                        <div className={styles.projectCell}>
+                          {item.iconUrl !== null ? (
+                            <img className={styles.modIcon} src={item.iconUrl} alt="" />
+                          ) : (
+                            <span className={styles.modIconFallback}>
+                              <WindIcon size={20} />
+                            </span>
+                          )}
+                          <div className={styles.modInfo}>
+                            <span className={styles.modName}>{item.name}</span>
+                            <span className={styles.modSub}>
+                              {item.source !== null ? SOURCE_LABELS[item.source] : 'Local file'}
+                              {!item.enabled && ' · Disabled'}
+                            </span>
+                          </div>
+                        </div>
+                        <div className={styles.versionCell}>
+                          <span className={styles.modVersion}>{item.versionNumber ?? 'Unknown'}</span>
+                          <span className={styles.modFile}>{item.fileName}</span>
+                        </div>
+                        <div className={styles.modActions}>
+                          {update !== undefined && (
+                            <button
+                              type="button"
+                              className={
+                                updatingFile === item.fileName ? styles.modUpdateBusy : styles.modUpdate
+                              }
+                              disabled={updatingFile !== null}
+                              title={`Update to ${update.versionNumber}`}
+                              aria-label={`Update ${item.name} to ${update.versionNumber}`}
+                              onClick={() => void applyUpdate(tab, item)}
+                            >
+                              <DownloadIcon size={16} />
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            role="switch"
+                            aria-checked={item.enabled}
+                            aria-label={`${item.enabled ? 'Disable' : 'Enable'} ${item.name}`}
+                            className={item.enabled ? styles.toggleOn : styles.toggle}
+                            onClick={() => void toggleContent(tab, item)}
+                          >
+                            <span className={styles.toggleKnob} />
+                          </button>
+                          <button
+                            type="button"
+                            className={styles.modRemove}
+                            aria-label={`Remove ${item.name}`}
+                            title="Remove file"
+                            onClick={() => void removeContent(tab, item)}
+                          >
+                            <TrashIcon size={16} />
+                          </button>
+                        </div>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </div>
             )}
           </>
         )}
 
         {tab === 'settings' && (
           <div className={styles.settings}>
+            <section className={styles.settingsSection}>
+            <h4 className={styles.settingsHeading}>General</h4>
             <label className={styles.field}>
               <span className={styles.fieldLabel}>Name</span>
               <input
@@ -681,6 +721,9 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
                 )}
               </div>
             </div>
+            </section>
+            <section className={styles.settingsSection}>
+            <h4 className={styles.settingsHeading}>Java</h4>
             <label className={styles.field}>
               <span className={styles.fieldLabel}>
                 Memory — {(memoryMb / 1024).toFixed(1)} GB
@@ -699,6 +742,19 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
                 disabled={localPack === null}
               />
             </label>
+            <label className={styles.field}>
+              <span className={styles.fieldLabel}>Java arguments</span>
+              <input
+                className={styles.input}
+                value={javaArgs}
+                onChange={(e) => setJavaArgs(e.target.value)}
+                spellCheck={false}
+                disabled={localPack === null}
+              />
+            </label>
+            </section>
+            <section className={styles.settingsSection}>
+            <h4 className={styles.settingsHeading}>Version</h4>
             <label className={styles.field}>
               <span className={styles.fieldLabel}>Game version</span>
               <Dropdown
@@ -756,26 +812,13 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
                 />
               </label>
             )}
-            <label className={styles.field}>
-              <span className={styles.fieldLabel}>Java arguments</span>
-              <input
-                className={styles.input}
-                value={javaArgs}
-                onChange={(e) => setJavaArgs(e.target.value)}
-                spellCheck={false}
-                disabled={localPack === null}
-              />
-            </label>
-            <div className={styles.actionsRow}>
-              <button
-                type="button"
-                className={styles.saveButton}
-                disabled={localPack === null}
-                onClick={() => void saveSettings()}
-              >
-                {settingsSaved ? 'Saved ✓' : 'Save'}
-              </button>
-              {localPack !== null && (
+            </section>
+            {localPack !== null && (
+              <section className={`${styles.settingsSection} ${styles.dangerSection}`}>
+                <h4 className={styles.settingsHeading}>Danger zone</h4>
+                <p className={styles.dangerWarning}>
+                  Deleting removes this instance with all its worlds, mods and settings.
+                </p>
                 <button
                   type="button"
                   className={styles.deleteButton}
@@ -783,9 +826,19 @@ export default function ModpackModal({ modpackId }: ModpackModalProps): JSX.Elem
                 >
                   Delete instance…
                 </button>
-              )}
+              </section>
+            )}
+            <div className={styles.actionsRow}>
+              <button
+                type="button"
+                className={styles.saveButton}
+                disabled={localPack === null}
+                onClick={() => void saveSettings()}
+              >
+                {settingsSaved ? 'Saved ✓' : 'Save changes'}
+              </button>
+              {settingsError !== null && <span className={styles.errorText}>{settingsError}</span>}
             </div>
-            {settingsError !== null && <span className={styles.errorText}>{settingsError}</span>}
           </div>
         )}
 

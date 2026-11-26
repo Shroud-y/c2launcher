@@ -285,11 +285,32 @@ export interface ModpackContentEntry {
   fileName: string
 }
 
+/**
+ * 'microsoft' — licensed account signed in through the Microsoft/Xbox chain.
+ * 'offline' — nickname only, no authentication; works in singleplayer and on
+ * servers running with online-mode=false.
+ */
+export type AccountType = 'microsoft' | 'offline'
+
+/** Arm width of a skin: classic (Steve, 4px) or slim (Alex, 3px). */
+export type SkinModel = 'classic' | 'slim'
+
 export interface MinecraftProfile {
   uuid: string
   username: string
-  /** Raw 64×64 skin texture as base64 PNG; null when the fetch failed. */
+  /**
+   * Raw skin texture as base64 PNG (64×64 or legacy 64×32). Null when the
+   * account has no custom skin or the fetch failed.
+   */
   skinBase64: string | null
+  skinModel: SkinModel
+  type: AccountType
+}
+
+/** Every saved account plus which one launches the game. */
+export interface AccountsState {
+  accounts: MinecraftProfile[]
+  activeUuid: string | null
 }
 
 export type ContentCategory =

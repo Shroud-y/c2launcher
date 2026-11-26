@@ -1,93 +1,72 @@
+/* Full-window instance page. Sits under the TopBar so the window controls
+   and drag region stay usable, and covers the sidebar + right panel.
+   Layout: header row → pill tabs → toolbar → table. */
 .overlay {
   position: fixed;
-  inset: 0;
+  top: var(--topbar-height);
+  left: 0;
+  right: 0;
+  bottom: 0;
   -webkit-app-region: no-drag;
-  background: var(--overlay);
+  background: var(--bg-primary);
   display: flex;
-  align-items: center;
-  justify-content: center;
   z-index: 100;
-  animation: overlayFadeIn 0.18s ease;
+  animation: pageIn 0.2s ease;
 }
 
-@keyframes overlayFadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes modalPopIn {
-  from { opacity: 0; transform: translateY(8px) scale(0.97); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+@keyframes pageIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .overlay.closing {
-  animation: overlayFadeOut 0.18s ease forwards;
+  animation: pageOut 0.18s ease forwards;
 }
 
-.overlay.closing .modal {
-  animation: modalPopOut 0.18s ease forwards;
-}
-
-@keyframes overlayFadeOut {
-  from { opacity: 1; }
-  to { opacity: 0; }
-}
-
-@keyframes modalPopOut {
-  from { opacity: 1; transform: translateY(0) scale(1); }
-  to { opacity: 0; transform: translateY(8px) scale(0.97); }
+@keyframes pageOut {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(12px); }
 }
 
 .modal {
   position: relative;
-  animation: modalPopIn 0.18s ease;
-  width: 640px;
-  height: 620px;
-  max-width: calc(100vw - 80px);
-  max-height: calc(100vh - 60px);
-  display: flex;
-  flex-direction: column;
-  background: var(--bg-secondary);      
-  border-radius: var(--card-radius);
-  padding: 24px;
-}
-
-/* Scrolling region under the fixed header + tabs. The negative margin
-   pushes the scrollbar toward the modal edge; padding keeps content clear. */
-.body {
   flex: 1;
-  min-height: 0;
-  overflow-y: auto;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  margin-right: -12px;
-  padding-right: 12px;
+  padding: 16px 24px 20px;
+  background: var(--bg-primary);
 }
 
-.closeButton {
-  position: absolute;
-  -webkit-app-region: no-drag;
-  top: 12px;
-  right: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  color: var(--text-muted);
-}
-
-.closeButton:hover {
-  background: var(--bg-hover);
-  color: var(--text-primary);
-}
+/* ---------- Header ---------- */
 
 .header {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding-right: 32px;
+  gap: 14px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.backButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+}
+
+.backButton:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.backIcon {
+  transform: rotate(90deg);
 }
 
 .icon {
@@ -129,40 +108,80 @@
 .headerText {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
   min-width: 0;
+  flex: 1;
 }
 
 .name {
-  font-size: 20px;
+  font-size: 24px;
   font-weight: 700;
-  color: var(--accent);
+  color: var(--text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.badge {
-  align-self: flex-start;
+.meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.meta > * + *::before {
+  content: '•';
+  margin-right: 10px;
   color: var(--text-muted);
-  font-size: 12px;
+}
+
+.badge {
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.status {
+  font-size: 14px;
+  color: var(--accent);
+}
+
+.progressTrack {
+  width: min(320px, 100%);
+  height: 4px;
+  border-radius: 999px;
+  background: var(--bg-hover);
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.2s ease;
 }
 
 .headerActions {
   display: flex;
-  gap: 8px;
-  margin-left: auto;
+  align-items: center;
+  gap: 10px;
   flex-shrink: 0;
 }
 
-.playButton {
-  padding: 10px 28px;
-  border-radius: 10px;
-  background: var(--accent);
-  color: var(--text-on-accent);
-  font-size: 15px;
+.playButton,
+.stopButton {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 46px;
+  padding: 0 22px;
+  border-radius: 12px;
+  font-size: 16px;
   font-weight: 700;
   transition: background 0.15s;
+}
+
+.playButton {
+  background: var(--accent);
+  color: var(--text-on-accent);
 }
 
 .playButton:hover:enabled {
@@ -174,81 +193,93 @@
   cursor: default;
 }
 
-.folderButton {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 42px;
-  border-radius: 10px;
-  color: var(--text-muted);
-}
-
-.folderButton:hover:enabled {
-  background: var(--bg-hover);
-  color: var(--text-primary);
-}
-
-.folderButton:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
 .stopButton {
-  padding: 10px 28px;
-  border-radius: 10px;
   background: var(--danger-strong);
   color: var(--text-on-dark);
-  font-size: 15px;
-  font-weight: 700;
-  transition: background 0.15s;
 }
 
 .stopButton:hover {
   background: var(--danger);
 }
 
-.updateButton {
-  padding: 10px 16px;
-  border-radius: 10px;
-  border: 1px solid var(--accent);
-  color: var(--accent);
-  font-size: 14px;
-  font-weight: 600;
+.roundButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  transition: background 0.15s, color 0.15s;
 }
 
-.updateButton:hover {
+.roundButton:hover:enabled {
   background: var(--bg-hover);
+  color: var(--accent);
 }
+
+.roundButton:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.banners {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---------- Pill tabs ---------- */
 
 .tabs {
   display: flex;
+  align-self: flex-start;
+  flex-wrap: wrap;
   gap: 4px;
-  margin: 20px 0 12px;
-  border-bottom: 2px solid var(--border);
+  margin-top: 16px;
+  padding: 5px;
+  border-radius: 999px;
+  background: var(--bg-secondary);
 }
 
 .tab,
 .tabActive {
-  padding: 8px 12px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-muted);
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
-}
-
-.tabActive {
-  color: var(--accent);
-  border-bottom-color: var(--accent);
+  padding: 8px 16px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  transition: background 0.15s, color 0.15s;
 }
 
 .tab:hover {
-  color: var(--text-primary);
+  background: var(--bg-hover);
 }
 
-.status {
-  font-size: 12px;
+.tabActive {
+  background: var(--accent-bg-soft);
   color: var(--accent);
+}
+
+/* Scrolling region under the tabs. The negative margin pushes the scrollbar
+   toward the window edge; padding keeps content clear. */
+.body {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  margin-top: 16px;
+  margin-right: -12px;
+  padding-right: 12px;
+}
+
+/* Children keep their natural height so .body scrolls instead. Without this
+   the table (overflow: hidden → min-height 0 as a flex item) was squeezed to
+   the viewport and its extra rows clipped, leaving nothing to scroll. */
+.body > * {
+  flex-shrink: 0;
 }
 
 .error {
@@ -404,7 +435,7 @@
 
 .logView {
   flex: 1;
-  min-height: 0;
+  min-height: 320px;
   overflow-y: auto;
   background: var(--bg-primary);
   border: 1px solid var(--border);
@@ -419,36 +450,95 @@
   user-select: text;
 }
 
+/* ---------- Content toolbar + table ---------- */
+
 .contentToolbar {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 8px;
+}
+
+.searchBox {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 42px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--bg-secondary);
+  color: var(--text-muted);
+}
+
+.searchBox:focus-within {
+  border-color: var(--accent);
 }
 
 .searchInput {
   flex: 1;
   min-width: 0;
-  padding: 7px 10px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--bg-secondary);
+  border: none;
+  background: transparent;
   color: var(--text-primary);
-  font-size: 13px;
+  font-size: 14px;
   outline: none;
 }
 
-.searchInput:focus {
-  border-color: var(--accent);
+.toolbarButton,
+.toolbarPrimary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 42px;
+  padding: 0 16px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s;
+}
+
+.toolbarButton {
+  border: 1px solid var(--border);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.toolbarButton:hover:enabled {
+  background: var(--bg-hover);
+}
+
+.toolbarButton:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.toolbarPrimary {
+  background: var(--accent);
+  color: var(--text-on-accent);
+}
+
+.toolbarPrimary:hover {
+  background: var(--accent-soft);
+}
+
+.subToolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 10px;
 }
 
 .updateAllButton {
-  padding: 7px 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
   border-radius: 8px;
-  border: 1px solid var(--accent);
   color: var(--accent);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
   white-space: nowrap;
 }
 
@@ -461,26 +551,67 @@
   cursor: default;
 }
 
+.table {
+  margin-top: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--card-radius);
+  overflow: hidden;
+}
+
+/* Shared column grid for the head and every row. */
+.tableHead,
+.modRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr) 150px;
+  align-items: center;
+  column-gap: 16px;
+  padding: 0 18px;
+}
+
+.tableHead {
+  height: 46px;
+  background: var(--bg-secondary);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.actionsHead {
+  text-align: right;
+}
+
 .modList {
   list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+  margin: 0;
+  padding: 0;
 }
 
 .modRow {
+  min-height: 72px;
+  border-top: 1px solid var(--border);
+  transition: background 0.15s;
+}
+
+.modRow:hover {
+  background: var(--bg-secondary);
+}
+
+.modRowDisabled .projectCell,
+.modRowDisabled .versionCell {
+  opacity: 0.55;
+}
+
+.projectCell {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 12px;
-  border-radius: 8px;
-  background: var(--bg-primary);
+  gap: 14px;
+  min-width: 0;
 }
 
 .modIcon {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
   object-fit: cover;
   flex-shrink: 0;
   background: var(--bg-hover);
@@ -490,39 +621,46 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  background: var(--accent);
-  color: var(--text-on-accent);
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+  background: var(--bg-hover);
+  color: var(--text-muted);
   flex-shrink: 0;
-  opacity: 0.7;
 }
 
-.modInfo {
+.modInfo,
+.versionCell {
   display: flex;
   flex-direction: column;
-  flex: 1;
+  gap: 3px;
   min-width: 0;
 }
 
-.modName {
-  font-size: 14px;
-  font-weight: 600;
+.modName,
+.modVersion {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.modVersion {
-  font-size: 12px;
+.modSub,
+.modFile {
+  font-size: 13px;
   color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .modActions {
   display: flex;
   align-items: center;
-  gap: 10px;
+  justify-content: flex-end;
+  gap: 12px;
 }
 
 .modUpdate,
@@ -530,8 +668,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
+  width: 32px;
+  height: 32px;
   border-radius: 6px;
   color: var(--accent);
   transition: background 0.15s;
@@ -560,8 +698,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
+  width: 32px;
+  height: 32px;
   border-radius: 6px;
   color: var(--text-muted);
 }
@@ -603,9 +741,43 @@
 }
 
 .settings {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+
+.settingsSection {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  padding: 20px;
+  border-radius: var(--card-radius);
+  background: var(--bg-secondary);
+}
+
+.settingsHeading {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.dangerSection {
+  border: 1px solid var(--danger-border);
+  align-items: flex-start;
+}
+
+/* Pinned to the bottom of the scroll area so Save is always reachable. */
+.settings .actionsRow {
+  grid-column: 1 / -1;
+  justify-content: flex-start;
+  gap: 16px;
+  position: sticky;
+  bottom: 0;
+  padding: 12px 0 4px;
+  background: var(--bg-primary);
 }
 
 .field {

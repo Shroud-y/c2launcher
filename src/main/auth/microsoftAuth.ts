@@ -1,5 +1,5 @@
 import { BrowserWindow, session } from 'electron'
-import type { MinecraftProfile } from '@shared/types'
+import type { MinecraftProfile, SkinModel } from '@shared/types'
 
 /**
  * Microsoft OAuth2 → Xbox Live → XSTS → Minecraft auth chain, implemented
@@ -187,24 +187,17 @@ async function minecraftLogin(userHash: string, xstsToken: string): Promise<McTo
 interface ProfileResponse {
   id: string
   name: string
-  skins?: { state: string; url: string }[]
+  skins?: { state: string; url: string; variant?: string }[]
 }
 
-async function fetchMinecraftProfile(mcAccessToken: string): Promise<MinecraftProfile> {
-  const res = await fetch('https://api.minecraftservices.com/minecraft/profile', {
-    headers: { Authorization: `Bearer ${mcAccessToken}` }
-  })
-  if (res.status === 404) {
-    throw new AuthError('This Microsoft account does not own Minecraft')
-  }
-  if (!res.ok) throw new AuthError(`Failed to fetch Minecraft profile (${res.status})`)
-  const data = (await res.json()) as ProfileResponse
+const PROFILE_URL = 'https://api.minecraftservices.com/minecraft/profile'
 
-  const skinUrl = data.skins?.find((s) => s.state === 'ACTIVE')?.url ?? null
+async function profileFromResponse(data: ProfileResponse): Promise<MinecraftProfile> {
+  const active = data.skins?.find((s) => s.state === 'ACTIVE')
   let skinBase64: string | null = null
-  if (skinUrl !== null) {
+  if (active !== undefined) {
     try {
-      const skinRes = await fetch(skinUrl)
+      const skinRes = await fetch(active.url)
       if (skinRes.ok) {
         skinBase64 = Buffer.from(await skinRes.arrayBuffer()).toString('base64')
       }
@@ -212,8 +205,49 @@ async function fetchMinecraftProfile(mcAccessToken: string): Promise<MinecraftPr
       // Skin is cosmetic — login still succeeds without it.
     }
   }
+  const skinModel: SkinModel = active?.variant?.toUpperCase() === 'SLIM' ? 'slim' : 'classic'
+  return { uuid: data.id, username: data.name, skinBase64, skinModel, type: 'microsoft' }
+}
 
-  return { uuid: data.id, username: data.name, skinBase64 }
+async function fetchMinecraftProfile(mcAccessToken: string): Promise<MinecraftProfile> {
+  const res = await fetch(PROFILE_URL, {
+    headers: { Authorization: `Bearer ${mcAccessToken}` }
+  })
+  if (res.status === 404) {
+    throw new AuthError('This Microsoft account does not own Minecraft')
+  }
+  if (!res.ok) throw new AuthError(`Failed to fetch Minecraft profile (${res.status})`)
+  return profileFromResponse((await res.json()) as ProfileResponse)
+}
+
+// ---------- Skins ----------
+
+/** Uploads a PNG as the account's skin on Mojang's side; returns the new profile. */
+export async function uploadSkin(
+  session: MinecraftSession,
+  png: Buffer,
+  model: SkinModel
+): Promise<MinecraftProfile> {
+  const form = new FormData()
+  form.append('variant', model)
+  form.append('file', new Blob([png], { type: 'image/png' }), 'skin.png')
+  const res = await fetch(`${PROFILE_URL}/skins`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${session.mcAccessToken}` },
+    body: form
+  })
+  if (!res.ok) throw new AuthError(`Mojang rejected the skin (${res.status})`)
+  return profileFromResponse((await res.json()) as ProfileResponse)
+}
+
+/** Resets the account to the default skin on Mojang's side. */
+export async function resetSkin(session: MinecraftSession): Promise<MinecraftProfile> {
+  const res = await fetch(`${PROFILE_URL}/skins/active`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${session.mcAccessToken}` }
+  })
+  if (!res.ok) throw new AuthError(`Could not reset the skin (${res.status})`)
+  return profileFromResponse((await res.json()) as ProfileResponse)
 }
 
 // ---------- Full chains ----------
@@ -222,23 +256,28 @@ async function fetchMinecraftProfile(mcAccessToken: string): Promise<MinecraftPr
 export interface MinecraftSession {
   profile: MinecraftProfile
   mcAccessToken: string
+  /** Substituted into the game's ${user_type}. */
+  userType: 'msa' | 'mojang' | 'legacy'
   expiresAt: number
 }
 
-let cachedSession: MinecraftSession | null = null
+/** Per-account cache, keyed by profile uuid. */
+const cachedSessions = new Map<string, MinecraftSession>()
 
 async function completeChain(msAccessToken: string): Promise<MinecraftSession> {
   const xbl = await xboxLiveAuth(msAccessToken)
   const xsts = await xstsAuth(xbl.token)
   const mcToken = await minecraftLogin(xsts.userHash, xsts.token)
   const profile = await fetchMinecraftProfile(mcToken.accessToken)
-  cachedSession = {
+  const session: MinecraftSession = {
     profile,
     mcAccessToken: mcToken.accessToken,
+    userType: 'msa',
     // Refresh 10 minutes before the token actually dies.
     expiresAt: Date.now() + (mcToken.expiresInSec - 600) * 1000
   }
-  return cachedSession
+  cachedSessions.set(profile.uuid, session)
+  return session
 }
 
 export interface AuthResult {
@@ -247,6 +286,9 @@ export interface AuthResult {
 }
 
 export async function loginInteractive(parent: BrowserWindow | null): Promise<AuthResult> {
+  // Start from a clean cookie jar so "add account" never silently signs the
+  // previously used Microsoft account back in.
+  await clearAuthSession()
   const code = await openAuthWindow(parent)
   const tokens = await exchangeAuthCode(code)
   const session = await completeChain(tokens.accessToken)
@@ -260,28 +302,32 @@ export async function loginSilent(refreshToken: string): Promise<AuthResult> {
 }
 
 /**
- * Returns a valid Minecraft session for launching the game, refreshing
- * through the full chain when the cached token is stale.
- * `getFreshTokens` lets the caller own refresh-token storage.
+ * Returns a valid Minecraft session for this account, refreshing through the
+ * full chain when the cached token is stale. The caller owns refresh-token
+ * storage.
  */
 export async function getMinecraftSession(
+  uuid: string,
   loadStoredRefreshToken: () => string | null,
   persistRefreshToken: (token: string) => void
 ): Promise<MinecraftSession> {
-  if (cachedSession !== null && cachedSession.expiresAt > Date.now()) {
-    return cachedSession
+  const cached = cachedSessions.get(uuid)
+  if (cached !== undefined && cached.expiresAt > Date.now()) {
+    return cached
   }
   const refreshToken = loadStoredRefreshToken()
   if (refreshToken === null) {
-    throw new AuthError('You must log in before launching the game')
+    throw new AuthError('This Microsoft account needs to sign in again')
   }
   const tokens = await refreshMsTokens(refreshToken)
   persistRefreshToken(tokens.refreshToken)
   return completeChain(tokens.accessToken)
 }
 
-export function clearCachedSession(): void {
-  cachedSession = null
+/** Forgets one account's cached session, or all of them. */
+export function clearCachedSession(uuid?: string): void {
+  if (uuid === undefined) cachedSessions.clear()
+  else cachedSessions.delete(uuid)
 }
 
 export async function clearAuthSession(): Promise<void> {

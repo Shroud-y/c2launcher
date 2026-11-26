@@ -178,6 +178,17 @@ export function CloseIcon({ size = 18, className }: IconProps): JSX.Element {
   )
 }
 
+export function TrashIcon({ size = 18, className }: IconProps): JSX.Element {
+  return (
+    <svg {...svgProps(size, className)}>
+      <path d="M4 7h16" />
+      <path d="M9 7V4h6v3" />
+      <path d="M6 7l1 13h10l1-13" />
+      <path d="M10 11v6M14 11v6" />
+    </svg>
+  )
+}
+
 // Filled, unlike the outline set above: these sit inside solid action buttons
 // where a stroked glyph reads as hollow at small sizes.
 export function PlayIcon({ size = 18, className }: IconProps): JSX.Element {

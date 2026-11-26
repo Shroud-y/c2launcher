@@ -17,7 +17,7 @@ import type {
   InstallContentResult,
   InstallProgress,
   ManualPickResult,
-  MinecraftProfile,
+  AccountsState,
   ModLoader,
   Modpack,
   ModpackGroup,
@@ -28,6 +28,7 @@ import type {
   RunningGame,
   SearchQuery,
   SearchResponse,
+  SkinModel,
   SplashTheme,
   UpdateDownloadProgress
 } from '@shared/types'
@@ -45,10 +46,22 @@ const api = {
     close: (): void => ipcRenderer.send(IpcChannel.WindowClose)
   },
   auth: {
-    login: (): Promise<MinecraftProfile> => ipcRenderer.invoke(IpcChannel.AuthLogin),
-    logout: (): Promise<void> => ipcRenderer.invoke(IpcChannel.AuthLogout),
-    getProfile: (): Promise<MinecraftProfile | null> =>
-      ipcRenderer.invoke(IpcChannel.AuthGetProfile)
+    login: (): Promise<AccountsState> => ipcRenderer.invoke(IpcChannel.AuthLogin),
+    loginOffline: (username: string): Promise<AccountsState> =>
+      ipcRenderer.invoke(IpcChannel.AuthLoginOffline, username),
+    logout: (): Promise<AccountsState> => ipcRenderer.invoke(IpcChannel.AuthLogout),
+    getAccounts: (): Promise<AccountsState> => ipcRenderer.invoke(IpcChannel.AuthGetAccounts),
+    switchAccount: (uuid: string): Promise<AccountsState> =>
+      ipcRenderer.invoke(IpcChannel.AuthSwitchAccount, uuid),
+    removeAccount: (uuid: string): Promise<AccountsState> =>
+      ipcRenderer.invoke(IpcChannel.AuthRemoveAccount, uuid),
+    /** Resolves null when the file picker is cancelled. */
+    importSkin: (uuid: string, model: SkinModel): Promise<AccountsState | null> =>
+      ipcRenderer.invoke(IpcChannel.AuthImportSkin, uuid, model),
+    setSkinModel: (uuid: string, model: SkinModel): Promise<AccountsState> =>
+      ipcRenderer.invoke(IpcChannel.AuthSetSkinModel, uuid, model),
+    resetSkin: (uuid: string): Promise<AccountsState> =>
+      ipcRenderer.invoke(IpcChannel.AuthResetSkin, uuid)
   },
   modpack: {
     list: (): Promise<Modpack[]> => ipcRenderer.invoke(IpcChannel.ModpackList),

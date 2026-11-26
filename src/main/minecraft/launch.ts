@@ -16,6 +16,8 @@ export interface LaunchContext {
   memoryMb: number
   extraJavaArgs: string
   session: MinecraftSession
+  /** JVM arguments the account needs, e.g. the authlib-injector agent. */
+  authJvmArgs?: string[]
   /** File the game's stdout/stderr is redirected to; truncated on launch. */
   logFile: string
 }
@@ -51,7 +53,7 @@ export function buildLaunchArgs(ctx: LaunchContext): string[] {
     auth_access_token: ctx.session.mcAccessToken,
     auth_xuid: '0',
     clientid: 'c2-launcher',
-    user_type: 'msa',
+    user_type: ctx.session.userType,
     version_name: ctx.meta.id,
     version_type: ctx.meta.type,
     game_directory: ctx.gameDir,
@@ -84,7 +86,14 @@ export function buildLaunchArgs(ctx: LaunchContext): string[] {
   const memoryArgs = [`-Xms${Math.min(1024, ctx.memoryMb)}M`, `-Xmx${ctx.memoryMb}M`]
   const userArgs = ctx.extraJavaArgs.split(' ').filter((a) => a !== '')
 
-  return [...memoryArgs, ...jvmArgs, ...userArgs, ctx.meta.mainClass, ...gameArgs]
+  return [
+    ...memoryArgs,
+    ...(ctx.authJvmArgs ?? []),
+    ...jvmArgs,
+    ...userArgs,
+    ctx.meta.mainClass,
+    ...gameArgs
+  ]
 }
 
 export async function launchGame(ctx: LaunchContext): Promise<ChildProcess> {
