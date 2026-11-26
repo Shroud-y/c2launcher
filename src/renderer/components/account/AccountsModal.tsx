@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import type { MinecraftProfile } from '@shared/types'
 import Avatar from '../common/Avatar'
-import { CloseIcon, PlusIcon, UploadIcon } from '../common/Icons'
+import { CloseIcon, DownloadIcon, PlusIcon } from '../common/Icons'
 import { useCloseAnimation } from '../../hooks/useCloseAnimation'
 import { useBackdropDismiss } from '../../hooks/useBackdropDismiss'
 import { useAuthStore } from '../../store/authStore'
@@ -47,7 +47,7 @@ function AccountRow({ account, active }: { account: MinecraftProfile; active: bo
           title="Import skin from PNG"
           aria-label="Import skin from PNG"
         >
-          {busy ? <span className={styles.spinner} /> : <UploadIcon size={16} />}
+          {busy ? <span className={styles.spinner} /> : <DownloadIcon size={16} />}
         </button>
         {account.skinBase64 !== null && (
           <button
